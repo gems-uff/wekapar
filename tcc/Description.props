@@ -1,0 +1,41 @@
+# Description file for prefuseTree
+#
+# 
+
+# Package name (required)
+PackageName=TCC
+
+# Version (required)
+Version=1.0
+
+#Date
+Date=2015-05-29
+
+# Title (required)
+Title=TCC
+
+Category=Visualization
+
+# Author (required)
+Author=Daniel Silva
+
+# Maintainer (required)
+Maintainer=Daniel Silva <danielnsilva@gmail.com>
+
+# License (required)
+License=GPL 3.0
+
+# Description (required)
+Description=TCC
+
+# Package URL for obtaining the package archive (required)
+PackageURL=http://www.ufac.br
+
+# URL for further information
+URL=http://www.ufac.br
+
+# Related to other packages?
+#Related=
+
+# Dependencies
+Depends=weka (>=3.7.2)
