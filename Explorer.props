@@ -1,0 +1,6 @@
+# Explorer.props file.
+# Adds the PostprocessPanel to the Tabs key.
+# The standalone option makes the tab available without
+# requiring the preprocess panel to load a dataset first.
+
+Tabs=weka.gui.explorer.PostprocessPanel:standalone

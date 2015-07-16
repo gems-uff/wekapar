@@ -5,20 +5,17 @@ import java.awt.event.ActionListener;
 import java.io.Serializable;
 
 import javax.swing.JMenuItem;
-
-import tcc.TCCFrame;
 import weka.associations.AssociationRules;
+import weka.gui.explorer.PostprocessPanel;
 import weka.gui.visualize.plugins.AssociationRuleVisualizePlugin;
 
 /**
- * Implements 
- * weka.gui.visualize.plugins.AssociationRuleVisualizePlugin
- * to create a JMenuItem and provides an alternative visualization
- * for association rules.
+ * Implements weka.gui.visualize.plugins.AssociationRuleVisualizePlugin
+ * to create a JMenuItem and loads associator output in postprocess tab.
  * 
  * @author Daniel Silva (danielnsilva{[at]}gmail{[dot]}com)
  */
-public class TCCPlugin implements Serializable, AssociationRuleVisualizePlugin {
+public class PostprocessAssociationsTabPlugin implements Serializable, AssociationRuleVisualizePlugin {
 
 	/**
 	 * 
@@ -28,16 +25,13 @@ public class TCCPlugin implements Serializable, AssociationRuleVisualizePlugin {
 	@Override
 	public JMenuItem getVisualizeMenuItem(final AssociationRules rules, final String name) {
 		
-		JMenuItem menuItem = new JMenuItem("TCCPlugin");
+		JMenuItem menuItem = new JMenuItem("View in postprocess tab");
 		menuItem.addActionListener(new ActionListener() {
 			
 			@Override
 			public void actionPerformed(ActionEvent e) {
-
-				final TCCFrame frame = new TCCFrame();
-				frame.loadRules(rules);
-				frame.setTitle(name);
-				frame.setVisible(true);
+				
+				PostprocessPanel.loadRules(rules);
 				
 			}
 		});
