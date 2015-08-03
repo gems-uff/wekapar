@@ -5,8 +5,9 @@ import java.awt.event.ActionListener;
 import java.io.Serializable;
 
 import javax.swing.JMenuItem;
+
 import weka.associations.AssociationRules;
-import weka.gui.explorer.PostprocessPanel;
+import weka.gui.explorer.PostprocessAssociationsPanel;
 import weka.gui.visualize.plugins.AssociationRuleVisualizePlugin;
 
 /**
@@ -15,7 +16,7 @@ import weka.gui.visualize.plugins.AssociationRuleVisualizePlugin;
  * 
  * @author Daniel Silva (danielnsilva{[at]}gmail{[dot]}com)
  */
-public class PostprocessAssociationsTabPlugin implements Serializable, AssociationRuleVisualizePlugin {
+public class PostprocessAssociationsPlugin implements Serializable, AssociationRuleVisualizePlugin {
 
 	/**
 	 * 
@@ -31,7 +32,7 @@ public class PostprocessAssociationsTabPlugin implements Serializable, Associati
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				
-				PostprocessPanel.loadRules(rules);
+				PostprocessAssociationsPanel.loadRules(rules);
 				
 			}
 		});
