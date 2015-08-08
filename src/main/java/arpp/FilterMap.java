@@ -12,17 +12,8 @@ import java.util.List;
  */
 public class FilterMap {
 	
-//	private int column;
 	private List<FilterMapAttribute> attributes = new ArrayList<>();
-	
-//	public int getColumn() {
-//		return column;
-//	}
-//	
-//	public void setColumn(int column) {
-//		this.column = column;
-//	}
-	
+		
 	public List<FilterMapAttribute> getAttributes() {
 		return attributes;
 	}
@@ -52,13 +43,5 @@ public class FilterMap {
 		}
 		
 	}
-	
-	/* (non-Javadoc)
-	 * @see java.lang.Object#equals(java.lang.Object)
-	 */
-//	@Override
-//	public boolean equals(Object o) {
-//		return (column == ((FilterMap) o).column);
-//	}
 
 }

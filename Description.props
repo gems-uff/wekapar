@@ -6,13 +6,13 @@
 PackageName=associationRulesPostProcessing
 
 # Version (required)
-Version=1.0
+Version=0.1
 
 #Date
-Date=2015-05-29
+Date=2015-08-08
 
 # Title (required)
-Title=TCC
+Title=associationRulesPostProcessing
 
 Category=Visualization
 
@@ -26,7 +26,7 @@ Maintainer=Daniel Silva <danielnsilva@gmail.com>
 License=GPL 3.0
 
 # Description (required)
-Description=TCC
+Description=associationRulesPostProcessing
 
 # Package URL for obtaining the package archive (required)
 PackageURL=http://www.ufac.br

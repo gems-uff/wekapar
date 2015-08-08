@@ -3,11 +3,16 @@
  */
 package arpp;
 
+import java.io.Serializable;
+
 /**
  * @author Daniel
  *
  */
-public class ComboBoxItem {
+public class ComboBoxItem implements Serializable {
+	
+	/** for serialization */
+	private static final long serialVersionUID = 3659464095024332565L;
 	
 	private Object key;
 	private String label;

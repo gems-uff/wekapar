@@ -3,6 +3,7 @@
  */
 package arpp;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -10,8 +11,10 @@ import java.util.List;
  * @author Daniel
  *
  */
-public class FilterMapAttribute {
+public class FilterMapAttribute implements Serializable {
 	
+	/** for serialization */
+	private static final long serialVersionUID = 1630080590430238566L;
 	private String attribute;
 	private List<String> values = new ArrayList<>();
 	
