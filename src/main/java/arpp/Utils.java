@@ -8,6 +8,7 @@ import java.util.regex.Pattern;
 
 import javax.swing.JTable;
 import javax.swing.table.TableColumn;
+import javax.swing.table.TableModel;
 
 /**
  * A collection of some useful methods.
@@ -39,9 +40,10 @@ public class Utils {
 	public static double getColumnMaxValue(JTable table, int colIndex) {
 
 		List<Double> list = new ArrayList<>();
+		TableModel tableModel = table.getModel();
 		
-		for (int i = 0; i < table.getModel().getRowCount(); i++) {
-			list.add((double) table.getValueAt(i, colIndex));
+		for (int i = 0; i < tableModel.getRowCount(); i++) {
+			list.add((double) tableModel.getValueAt(i, colIndex));
 		}
 		
 		return !list.isEmpty() ? Collections.max(list) : 0;
@@ -58,8 +60,10 @@ public class Utils {
 	public static double getColumnMinValue(JTable table, int colIndex) {
 
 		List<Double> list = new ArrayList<>();
-		for (int i = 0; i < table.getModel().getRowCount(); i++) {
-			list.add((double) table.getValueAt(i, colIndex));
+		TableModel tableModel = table.getModel();
+		
+		for (int i = 0; i < tableModel.getRowCount(); i++) {
+			list.add((double) tableModel.getValueAt(i, colIndex));
 		}
 		
 		return !list.isEmpty() ? Collections.min(list) : 0;
