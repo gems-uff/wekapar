@@ -2,14 +2,15 @@ package weka.gui.explorer;
 
 
 import java.awt.BorderLayout;
-import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
-import java.awt.GridLayout;
 import java.awt.Insets;
-import java.awt.SystemColor;
+import java.awt.Toolkit;
+import java.awt.datatransfer.Clipboard;
+import java.awt.datatransfer.DataFlavor;
+import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.ItemEvent;
@@ -28,6 +29,7 @@ import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -51,7 +53,6 @@ import javax.swing.RowSorter;
 import javax.swing.RowSorter.SortKey;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingConstants;
-import javax.swing.border.EmptyBorder;
 import javax.swing.border.TitledBorder;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
@@ -69,10 +70,12 @@ import weka.associations.AssociationRule;
 import weka.associations.AssociationRules;
 import weka.associations.Item;
 import weka.core.Instances;
+import weka.gui.JTableHelper;
 import weka.gui.Logger;
 import weka.gui.SysErrLog;
 import weka.gui.explorer.Explorer.ExplorerPanel;
 import weka.gui.explorer.Explorer.LogHandler;
+import weka.gui.scripting.JythonScript;
 import arpp.ComboBoxItem;
 import arpp.DecimalFormatRenderer;
 import arpp.FilterComboBox;
@@ -83,6 +86,16 @@ import arpp.ProgressTableCellRenderer;
 import arpp.RulesTableColumnModel;
 import arpp.RulesTableModel;
 import arpp.Utils;
+
+import java.awt.GridLayout;
+import java.awt.Component;
+
+import javax.swing.border.EmptyBorder;
+import javax.swing.GroupLayout;
+import javax.swing.GroupLayout.Alignment;
+import javax.swing.UIManager;
+
+import java.awt.SystemColor;
 
 /**
  * A JPanel to visualize association rules
@@ -256,9 +269,9 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 //				Clipboard clipboard = toolkit.getSystemClipboard();
 //				try {
 //					String result = (String) clipboard.getData(DataFlavor.stringFlavor);
-//					AssociationRule rule;
-//					List<AssociationRule> rulesList = new ArrayList<>();
-//					Pattern rulePattern = Pattern.compile("(\\d)(.*)==>(.*)");
+////					AssociationRule rule;
+////					List<AssociationRule> rulesList = new ArrayList<>();
+//					Pattern rulePattern = Pattern.compile("(\\d+).\\s+(.+)\\s+(\\d+)\\s+==>\\s+(.+)\\s+(\\d+)\\s+(.*)");
 //					Pattern p;
 //					Matcher m;
 //					String line;
@@ -270,12 +283,15 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 //							p = Pattern.compile("(\\d. )(.+)( \\d+) ==>");
 //							m = p.matcher(line);
 //							if (m.find()) {
-//								String[] premisses = m.group(2).split(" ");
+//								String premisse = m.group(2);
+//								
+//								String[] consequent;
 //							}
 //						}
 //						
 //					}
-//					AssociationRules rules = new AssociationRules(rulesList);
+//					scanner.close();
+////					AssociationRules rules = new AssociationRules(rulesList);
 //				} catch (UnsupportedFlavorException | IOException ex) {
 //					ex.printStackTrace();
 //				}
@@ -459,8 +475,8 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		filterPanel.add(metricsFilterPanel, BorderLayout.EAST);
 		GridBagLayout gbl_metricsFilterPanel = new GridBagLayout();
 		gbl_metricsFilterPanel.columnWidths = new int[] {90, 70, 90, 70};
-		gbl_metricsFilterPanel.columnWeights = new double[]{0.0, 0.0, 0.0, 0.0};
-		gbl_metricsFilterPanel.rowWeights = new double[]{0.0, 0.0, 0.0};
+		gbl_metricsFilterPanel.columnWeights = new double[]{1.0, 0.0, 1.0, 0.0};
+		gbl_metricsFilterPanel.rowWeights = new double[]{1.0, 1.0, 1.0};
 		metricsFilterPanel.setLayout(gbl_metricsFilterPanel);
 		
 		chckbxSupport = new JCheckBox("Support");
@@ -468,17 +484,18 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		chckbxSupport.setSelected(true);
 		GridBagConstraints gbc_chckbxSupport = new GridBagConstraints();
 		gbc_chckbxSupport.fill = GridBagConstraints.BOTH;
-		gbc_chckbxSupport.insets = new Insets(0, 0, 5, 5);
+		gbc_chckbxSupport.insets = new Insets(0, 0, 0, 5);
 		gbc_chckbxSupport.gridx = 0;
 		gbc_chckbxSupport.gridy = 0;
 		metricsFilterPanel.add(chckbxSupport, gbc_chckbxSupport);
 		
 		spinSupport = new MetricSpinner();
+		spinSupport.setPreferredSize(new Dimension(29, 25));
 		spinSupport.setEnabled(false);
 		spinSupport.setModel(new SpinnerNumberModel(new Double(0), null, null, new Double(0.01)));
 		GridBagConstraints gbc_spinSupport = new GridBagConstraints();
-		gbc_spinSupport.fill = GridBagConstraints.BOTH;
-		gbc_spinSupport.insets = new Insets(0, 0, 5, 5);
+		gbc_spinSupport.insets = new Insets(0, 0, 0, 5);
+		gbc_spinSupport.fill = GridBagConstraints.HORIZONTAL;
 		gbc_spinSupport.gridx = 1;
 		gbc_spinSupport.gridy = 0;
 		metricsFilterPanel.add(spinSupport, gbc_spinSupport);
@@ -489,17 +506,18 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		chckbxConfidence.setSelected(true);
 		GridBagConstraints gbc_chckbxConfidence = new GridBagConstraints();
 		gbc_chckbxConfidence.fill = GridBagConstraints.BOTH;
-		gbc_chckbxConfidence.insets = new Insets(0, 0, 5, 5);
+		gbc_chckbxConfidence.insets = new Insets(0, 0, 0, 5);
 		gbc_chckbxConfidence.gridx = 0;
 		gbc_chckbxConfidence.gridy = 1;
 		metricsFilterPanel.add(chckbxConfidence, gbc_chckbxConfidence);
 		
 		spinConfidence = new MetricSpinner();
+		spinConfidence.setPreferredSize(new Dimension(29, 25));
 		spinConfidence.setEnabled(false);
 		spinConfidence.setModel(new SpinnerNumberModel(new Double(0), null, null, new Double(0.01)));
 		GridBagConstraints gbc_spinConfidence = new GridBagConstraints();
-		gbc_spinConfidence.fill = GridBagConstraints.BOTH;
-		gbc_spinConfidence.insets = new Insets(0, 0, 5, 5);
+		gbc_spinConfidence.fill = GridBagConstraints.HORIZONTAL;
+		gbc_spinConfidence.insets = new Insets(0, 0, 0, 5);
 		gbc_spinConfidence.gridx = 1;
 		gbc_spinConfidence.gridy = 1;
 		metricsFilterPanel.add(spinConfidence, gbc_spinConfidence);
@@ -510,17 +528,18 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		chckbxLift.setSelected(true);
 		GridBagConstraints gbc_chckbxLift = new GridBagConstraints();
 		gbc_chckbxLift.fill = GridBagConstraints.BOTH;
-		gbc_chckbxLift.insets = new Insets(0, 0, 5, 5);
+		gbc_chckbxLift.insets = new Insets(0, 0, 0, 5);
 		gbc_chckbxLift.gridx = 0;
 		gbc_chckbxLift.gridy = 2;
 		metricsFilterPanel.add(chckbxLift, gbc_chckbxLift);
 		
 		spinLift = new MetricSpinner();
+		spinLift.setPreferredSize(new Dimension(29, 25));
 		spinLift.setEnabled(false);
 		spinLift.setModel(new SpinnerNumberModel(new Double(0), null, null, new Double(0.01)));
 		GridBagConstraints gbc_spinLift = new GridBagConstraints();
-		gbc_spinLift.fill = GridBagConstraints.BOTH;
-		gbc_spinLift.insets = new Insets(0, 0, 5, 5);
+		gbc_spinLift.fill = GridBagConstraints.HORIZONTAL;
+		gbc_spinLift.insets = new Insets(0, 0, 0, 5);
 		gbc_spinLift.gridx = 1;
 		gbc_spinLift.gridy = 2;
 		metricsFilterPanel.add(spinLift, gbc_spinLift);
@@ -531,17 +550,18 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		chckbxLeverage.setSelected(true);
 		GridBagConstraints gbc_chckbxLeverage = new GridBagConstraints();
 		gbc_chckbxLeverage.fill = GridBagConstraints.BOTH;
-		gbc_chckbxLeverage.insets = new Insets(0, 0, 5, 5);
+		gbc_chckbxLeverage.insets = new Insets(0, 0, 0, 5);
 		gbc_chckbxLeverage.gridx = 2;
 		gbc_chckbxLeverage.gridy = 0;
 		metricsFilterPanel.add(chckbxLeverage, gbc_chckbxLeverage);
 		
 		spinLeverage = new MetricSpinner();
+		spinLeverage.setPreferredSize(new Dimension(29, 25));
 		spinLeverage.setEnabled(false);
 		spinLeverage.setModel(new SpinnerNumberModel(new Double(0), null, null, new Double(0.01)));
 		GridBagConstraints gbc_spinLeverage = new GridBagConstraints();
-		gbc_spinLeverage.fill = GridBagConstraints.BOTH;
-		gbc_spinLeverage.insets = new Insets(0, 0, 5, 5);
+		gbc_spinLeverage.fill = GridBagConstraints.HORIZONTAL;
+		gbc_spinLeverage.insets = new Insets(0, 0, 0, 5);
 		gbc_spinLeverage.gridx = 3;
 		gbc_spinLeverage.gridy = 0;
 		metricsFilterPanel.add(spinLeverage, gbc_spinLeverage);
@@ -552,17 +572,18 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		chckbxConviction.setSelected(true);
 		GridBagConstraints gbc_chckbxConviction = new GridBagConstraints();
 		gbc_chckbxConviction.fill = GridBagConstraints.BOTH;
-		gbc_chckbxConviction.insets = new Insets(0, 0, 5, 5);
+		gbc_chckbxConviction.insets = new Insets(0, 0, 0, 5);
 		gbc_chckbxConviction.gridx = 2;
 		gbc_chckbxConviction.gridy = 1;
 		metricsFilterPanel.add(chckbxConviction, gbc_chckbxConviction);
 		
 		spinConviction = new MetricSpinner();
+		spinConviction.setPreferredSize(new Dimension(29, 25));
 		spinConviction.setEnabled(false);
 		spinConviction.setModel(new SpinnerNumberModel(new Double(0), null, null, new Double(0.01)));
 		GridBagConstraints gbc_spinConviction = new GridBagConstraints();
-		gbc_spinConviction.fill = GridBagConstraints.BOTH;
-		gbc_spinConviction.insets = new Insets(0, 0, 5, 5);
+		gbc_spinConviction.fill = GridBagConstraints.HORIZONTAL;
+		gbc_spinConviction.insets = new Insets(0, 0, 0, 5);
 		gbc_spinConviction.gridx = 3;
 		gbc_spinConviction.gridy = 1;
 		metricsFilterPanel.add(spinConviction, gbc_spinConviction);
@@ -578,7 +599,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		GridBagConstraints gbc_btnReset = new GridBagConstraints();
 		gbc_btnReset.fill = GridBagConstraints.HORIZONTAL;
 		gbc_btnReset.gridwidth = 2;
-		gbc_btnReset.insets = new Insets(0, 0, 5, 5);
+		gbc_btnReset.insets = new Insets(0, 0, 0, 5);
 		gbc_btnReset.gridx = 2;
 		gbc_btnReset.gridy = 2;
 		metricsFilterPanel.add(btnReset, gbc_btnReset);
@@ -595,7 +616,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		JLabel lblTotalRules = new JLabel("Total Rules:");
 		infoPanel.add(lblTotalRules);
 		
-		lblTotalRulesValue = new JLabel("");
+		lblTotalRulesValue = new JLabel("0");
 		infoPanel.add(lblTotalRulesValue);
 		
 		JSeparator separator = new JSeparator();
@@ -606,14 +627,13 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		JLabel lblFilteredRules = new JLabel("Filtered Rules:");
 		infoPanel.add(lblFilteredRules);
 		
-		lblFilteredRulesValue = new JLabel("");
+		lblFilteredRulesValue = new JLabel("0");
 		infoPanel.add(lblFilteredRulesValue);
 		
 		JScrollPane scrollPaneTable = new JScrollPane();
 		tablePanel.add(scrollPaneTable);
 		
 		table = new JTable();
-//		table.getTableHeader().setReorderingAllowed(false);
 		
 		scrollPaneTable.setViewportView(table);
 
@@ -956,15 +976,8 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 				}
 			}
 			if (splitOr.length > 1) {
-				for (RowFilter<Object, Object> rr : filterList) {
-					System.out.println(rr);
-				}
 				rowFilter = RowFilter.orFilter(filterList);
 			} else if (splitOr.length == 1 && !f.trim().equals("AND")) {
-				System.out.println("entrou aqui");
-				for (RowFilter<Object, Object> rr : filterList) {
-					System.out.println(rr);
-				}
 				rowFilter = RowFilter.andFilter(filterList);
 			} else {
 				operators.add(f.trim());
@@ -1126,7 +1139,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 	 * @param  rules  the association rules
 	 */
 	public static void loadRules(AssociationRules rules) {
-
+		
 		table.setModel(new RulesTableModel());
 		table.setColumnModel(new RulesTableColumnModel());
 		
@@ -1151,9 +1164,20 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		/* Get column model */
 		final TableColumnModel columnModel = table.getColumnModel();
 		
-		/* Set custom renderer for metric's cells */
+		/* Set minimum widths for antecedent and consequent columns */
+		columnModel.getColumn(0).setMinWidth(220);
+		columnModel.getColumn(1).setMinWidth(120);
+		
 		for (int i = 2; i < table.getColumnCount(); i++) {
+			
+			/* Set custom renderer for metric's cells */
 			columnModel.getColumn(i).setCellRenderer(new DecimalFormatRenderer());
+			
+			/* Set minimum size values for metric's columns */
+			columnModel.getColumn(i).setPreferredWidth(105);
+			columnModel.getColumn(i).setMinWidth(70);
+			columnModel.getColumn(i).setMaxWidth(120);
+			
 		}
 		
 		/* Set FilterMap instance for antecedent and consequent columns */
@@ -1192,7 +1216,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 			
 		});
 		
-		/* Adds rules in table */
+		/* Adds rules to table */
 		for (AssociationRule r : rulesList) {
 			
 			/* Antecedent */
@@ -1213,27 +1237,27 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 			double supportTemp = ((double) r.getTotalSupport()) / r.getTotalTransactions();
 			double support = weka.core.Utils.roundDouble(supportTemp, 2);
 			
-			/* List containing values to be added to table */
-			List<Object> values = new ArrayList<Object>();
+			/* List containing each column's content to be added to table */
+			List<Object> row = new ArrayList<Object>();
 			
 			/* Adds antecedent, consequent and support */
-			values.add(antecedent.trim());
-			values.add(consequent.trim());
-			values.add(support);
+			row.add(antecedent.trim());
+			row.add(consequent.trim());
+			row.add(support);
 			
 			/* Adds metric values */
 			for (String m: metrics) {
 				try {
 					double metricValue = r.getNamedMetricValue(m);
 					double roundedValue = weka.core.Utils.roundDouble(metricValue, 2);
-					values.add(roundedValue);
+					row.add(roundedValue);
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
 			}
 			
 			/* Adds a row with values to table */
-			tableModel.addRow(values.toArray());
+			tableModel.addRow(row.toArray());
 			
 		}
 		
@@ -1259,9 +1283,11 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		
 		for (Map.Entry<String, JSpinner> entry : metricSpinnerMap.entrySet()) {
 			
+			JSpinner spinner = (entry.getValue());
+			
 			/* Maximum and minimum values for metrics */
 			
-			SpinnerNumberModel spinModel = (SpinnerNumberModel) (entry.getValue()).getModel();
+			SpinnerNumberModel spinModel = (SpinnerNumberModel) spinner.getModel();
 			int colIndex = table.getColumnModel().getColumnIndex(entry.getKey());
 			double spinModelMax = Utils.getColumnMaxValue(table, colIndex);
 			double spinModelMin = Utils.getColumnMinValue(table, colIndex);
@@ -1269,27 +1295,19 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 			spinModel.setMinimum(spinModelMin);
 			spinModel.setValue(spinModelMin);
 
-			/* Set listeners for spinners to control minimum metric values */
+			/* Set listeners for spinners to filter minimum metric values */
 			
-			(entry.getValue()).addChangeListener(new ChangeListener() {
+			spinner.addChangeListener(new ChangeListener() {
 				public void stateChanged(ChangeEvent e) {
 					onMetricValueChange();
 				}
 			});
 			
-			/* Enable component */
+			/* Enables component */
 			
-			(entry.getValue()).setEnabled(true);
+			spinner.setEnabled(true);
 			
 		}
-		
-		/* Set listeners for checkboxes to control column's visibility */
-		
-//		ItemListener metricVisibilityListener = new ItemListener() {
-//			public void itemStateChanged(ItemEvent e) {
-//				onMetricVisibilityChange(e);
-//			}
-//		};
 		
 		ActionListener metricVisibilityListener = new ActionListener() {
 			@Override
