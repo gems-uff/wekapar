@@ -9,7 +9,7 @@ import javax.swing.JTable;
 import javax.swing.plaf.basic.BasicProgressBarUI;
 import javax.swing.table.TableCellRenderer;
 
-public class ProgressTableCellRenderer extends JProgressBar implements TableCellRenderer {
+public class ProgressCellRenderer extends JProgressBar implements TableCellRenderer {
 
 	/** for serialization */
 	private static final long serialVersionUID = -5466571908339798798L;

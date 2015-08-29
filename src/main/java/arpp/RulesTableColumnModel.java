@@ -29,9 +29,6 @@ public class RulesTableColumnModel extends DefaultTableColumnModel {
 		if (indexedColumn != null) {
 			addColumn(indexedColumn.getColumn());
 			int lastColumn = getColumnCount() - 1;
-			System.out.println(columnName);
-			System.out.println(indexedColumn.getIndex());
-			System.out.println(lastColumn);
 			if (indexedColumn.getIndex() < lastColumn) {
 				moveColumn(lastColumn, indexedColumn.getIndex());
 			}

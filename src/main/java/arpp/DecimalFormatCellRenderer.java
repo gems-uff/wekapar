@@ -5,9 +5,8 @@ import java.text.DecimalFormat;
 
 import javax.swing.JTable;
 import javax.swing.table.DefaultTableCellRenderer;
-import javax.swing.text.html.HTMLDocument.HTMLReader.IsindexAction;
 
-public class DecimalFormatRenderer extends DefaultTableCellRenderer {
+public class DecimalFormatCellRenderer extends DefaultTableCellRenderer {
 
 	/** for serialization */
 	private static final long serialVersionUID = -5952628278736902476L;

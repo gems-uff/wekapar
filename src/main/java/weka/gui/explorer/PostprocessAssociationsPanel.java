@@ -86,12 +86,13 @@ import weka.gui.explorer.Explorer.ExplorerPanel;
 import weka.gui.explorer.Explorer.LogHandler;
 import weka.gui.scripting.JythonScript;
 import arpp.ComboBoxItem;
-import arpp.DecimalFormatRenderer;
+import arpp.DecimalFormatCellRenderer;
 import arpp.FilterComboBox;
 import arpp.FilterMap;
 import arpp.FilterMapAttribute;
 import arpp.MetricSpinner;
-import arpp.ProgressTableCellRenderer;
+import arpp.ProgressCellRenderer;
+import arpp.RulesCellRenderer;
 import arpp.RulesTableColumnModel;
 import arpp.RulesTableModel;
 import arpp.Utils;
@@ -808,7 +809,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 				if (keyColumn < columnModel.getColumnCount()) {
 					if (!table.getColumnName(keyColumn).equals(metricName)) {
 						int columnIndex = columnModel.getColumnIndex(metricName);
-						columnModel.getColumn(columnIndex).setCellRenderer(new DecimalFormatRenderer());
+						columnModel.getColumn(columnIndex).setCellRenderer(new DecimalFormatCellRenderer());
 					}
 				}
 			}
@@ -987,13 +988,11 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 			String[] splitOr = f.split(" OR ");
 			List<RowFilter<Object, Object>> filterList = new ArrayList<>();
 			for (String itemOr : splitOr) {
-				System.out.println("OR:" + itemOr);
 				if (!itemOr.equals("")) {
 					String[] splitAnd = itemOr.split(" AND ");
 					if (splitAnd.length > 1) {
 						List<RowFilter<Object, Object>> andFilters = new ArrayList<>();
 						for (String itemAnd : splitAnd) {
-							System.out.println("AND:" + itemAnd);
 							if (!itemAnd.equals("")) {
 								andFilters.add(filterItemParser(itemAnd));
 							}
@@ -1207,10 +1206,14 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		columnModel.getColumn(0).setMinWidth(220);
 		columnModel.getColumn(1).setMinWidth(120);
 		
+		/* Set custom renderer for antecedent and consequent cells */
+		columnModel.getColumn(0).setCellRenderer(new RulesCellRenderer());
+		columnModel.getColumn(1).setCellRenderer(new RulesCellRenderer());
+		
 		for (int i = 2; i < table.getColumnCount(); i++) {
 			
 			/* Set custom renderer for metric's cells */
-			columnModel.getColumn(i).setCellRenderer(new DecimalFormatRenderer());
+			columnModel.getColumn(i).setCellRenderer(new DecimalFormatCellRenderer());
 			
 			/* Set minimum size values for metric's columns */
 			columnModel.getColumn(i).setPreferredWidth(105);
@@ -1240,13 +1243,13 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 					int keyColumn = key.getColumn();
 					
 					for (int i = 2; i < columnModel.getColumnCount(); i++) {
-						columnModel.getColumn(i).setCellRenderer(new DecimalFormatRenderer());
+						columnModel.getColumn(i).setCellRenderer(new DecimalFormatCellRenderer());
 					}
 					
 					String columnName = tableModel.getColumnName(keyColumn);
 					int columnIndex = table.getColumnModel().getColumnIndex(columnName);
 					if (columnIndex > 1) {
-						columnModel.getColumn(columnIndex).setCellRenderer(new ProgressTableCellRenderer());
+						columnModel.getColumn(columnIndex).setCellRenderer(new ProgressCellRenderer());
 					}
 					
 				}
@@ -1368,8 +1371,6 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		chckbxConviction.setEnabled(true);
 		
 		btnReset.setEnabled(true);
-		
-//		this.getParent();
 		
 	}
 	
