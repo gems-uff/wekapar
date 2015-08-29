@@ -13,6 +13,12 @@ import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.ComponentEvent;
+import java.awt.event.ComponentListener;
+import java.awt.event.ContainerEvent;
+import java.awt.event.ContainerListener;
+import java.awt.event.InputMethodEvent;
+import java.awt.event.InputMethodListener;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 import java.awt.event.KeyAdapter;
@@ -41,6 +47,7 @@ import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSeparator;
@@ -58,6 +65,8 @@ import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import javax.swing.event.RowSorterEvent;
 import javax.swing.event.RowSorterListener;
+import javax.swing.event.TableModelEvent;
+import javax.swing.event.TableModelListener;
 import javax.swing.filechooser.FileFilter;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.table.DefaultTableModel;
@@ -96,6 +105,8 @@ import javax.swing.GroupLayout.Alignment;
 import javax.swing.UIManager;
 
 import java.awt.SystemColor;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
 
 /**
  * A JPanel to visualize association rules
@@ -635,6 +646,24 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		
 		table = new JTable();
 		
+		/* Forces tab selection every time the data model in table was changed.
+		 * I need to select this tab after click on visualization menu item
+		 * at associate tab. It's the only way i've found to do that.
+		 * Probabily is not the beter way.
+		 */
+		table.addPropertyChangeListener(new PropertyChangeListener() {
+			
+			@Override
+			public void propertyChange(PropertyChangeEvent e) {
+				
+				if (e.getPropertyName().equals("model")) {
+					selectTab();
+				}
+				
+			}
+			
+		});
+		
 		scrollPaneTable.setViewportView(table);
 
 	}
@@ -1134,6 +1163,16 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 	}
 
 	/**
+	 * Select this tab. Used by visualization
+	 * menu item in associate tab.
+	 */
+	private void selectTab() {
+		
+		getExplorer().getTabbedPane().setSelectedComponent(this);
+		
+	}
+
+	/**
 	 * Loads rules into a JTable
 	 *
 	 * @param  rules  the association rules
@@ -1330,8 +1369,10 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		
 		btnReset.setEnabled(true);
 		
+//		this.getParent();
+		
 	}
-
+	
 	/** Unused */
 	@Override
 	public void setInstances(Instances inst) {}
