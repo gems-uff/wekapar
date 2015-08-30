@@ -431,7 +431,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 				if (filter.length() == 0) {
 					sorter.setRowFilter(null);
 				} else {
-					Pattern p = Pattern.compile("^(X|Y)\\[.+\\]$");
+					Pattern p = Pattern.compile("^(\\(|)(X|Y)\\[.+\\](\\)|)$");
 					Matcher m = p.matcher(filter);
 					if (m.find()) {
 						sorter.setRowFilter(buildRulesFilter(filter));
