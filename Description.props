@@ -6,10 +6,10 @@
 PackageName=associationRulesPostProcessing
 
 # Version (required)
-Version=0.1.1
+Version=0.2
 
 #Date
-Date=2015-08-08
+Date=2015-08-25
 
 # Title (required)
 Title=associationRulesPostProcessing

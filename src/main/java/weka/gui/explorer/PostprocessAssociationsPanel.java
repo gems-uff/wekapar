@@ -2,10 +2,12 @@ package weka.gui.explorer;
 
 
 import java.awt.BorderLayout;
+import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.awt.GridLayout;
 import java.awt.Insets;
 import java.awt.Toolkit;
 import java.awt.datatransfer.Clipboard;
@@ -13,16 +15,12 @@ import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.awt.event.ComponentEvent;
-import java.awt.event.ComponentListener;
-import java.awt.event.ContainerEvent;
-import java.awt.event.ContainerListener;
-import java.awt.event.InputMethodEvent;
-import java.awt.event.InputMethodListener;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -31,15 +29,17 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import javax.swing.BoxLayout;
 import javax.swing.ComboBoxModel;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.JButton;
@@ -60,13 +60,12 @@ import javax.swing.RowSorter;
 import javax.swing.RowSorter.SortKey;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingConstants;
+import javax.swing.border.EmptyBorder;
 import javax.swing.border.TitledBorder;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import javax.swing.event.RowSorterEvent;
 import javax.swing.event.RowSorterListener;
-import javax.swing.event.TableModelEvent;
-import javax.swing.event.TableModelListener;
 import javax.swing.filechooser.FileFilter;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.table.DefaultTableModel;
@@ -79,12 +78,10 @@ import weka.associations.AssociationRule;
 import weka.associations.AssociationRules;
 import weka.associations.Item;
 import weka.core.Instances;
-import weka.gui.JTableHelper;
 import weka.gui.Logger;
 import weka.gui.SysErrLog;
 import weka.gui.explorer.Explorer.ExplorerPanel;
 import weka.gui.explorer.Explorer.LogHandler;
-import weka.gui.scripting.JythonScript;
 import arpp.ComboBoxItem;
 import arpp.DecimalFormatCellRenderer;
 import arpp.FilterComboBox;
@@ -97,18 +94,6 @@ import arpp.RulesTableColumnModel;
 import arpp.RulesTableModel;
 import arpp.Utils;
 
-import java.awt.GridLayout;
-import java.awt.Component;
-
-import javax.swing.border.EmptyBorder;
-import javax.swing.GroupLayout;
-import javax.swing.GroupLayout.Alignment;
-import javax.swing.UIManager;
-
-import java.awt.SystemColor;
-import java.beans.PropertyChangeEvent;
-import java.beans.PropertyChangeListener;
-
 /**
  * A JPanel to visualize association rules
  *
@@ -118,6 +103,9 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 
 	/** for serialization */
 	private static final long serialVersionUID = 3114490118265884877L;
+	
+	/** A thread for loading/saving/exporting rules */
+	private Thread thread;
 	
 	/** The parent frame */
 	protected Explorer explorer = null;
@@ -166,12 +154,11 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 	private JButton btnOpen;
 	protected static JButton btnExport;
 
-	private static AssociationRules associationRules;
+	private static List<Map<String, String>> mappedRules;
 	private JButton btnLoadFromClipboard;
 	
 	/** The file chooser for save/open rules and applied filters. */
 	private JFileChooser fileChooser = new JFileChooser(new File(System.getProperty("user.dir")));
-	private JPanel rulesFilterPanel;
 	private JPanel metricsFilterPanel;
 	
 	/** JCheckBox for metric Support */
@@ -215,22 +202,17 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 	private JLabel lblComparisonType;
 	private JLabel lblAttribute;
 	private JLabel lblLabel;
-	private JPanel rulesFilterNorth;
-	private JPanel rulesFilterSouth;
-	private JPanel logicalOperatorPanel;
-	private JPanel tableColumnPanel;
-	private JPanel comparisonTypePanel;
-	private JPanel attributePanel;
-	private JPanel labelPanel;
-	private JPanel addPanel;
-	private JLabel lblAdd;
+	private JPanel rulesFilterPanel;
 
 	/**
 	 * Create the postprocess panel.
 	 */
 	public PostprocessAssociationsPanel() {
-				
+		
 		setLayout(new BorderLayout(0, 0));
+		
+		setFocusable(true);
+		
 		comboFilterComponent.addKeyListener(new KeyAdapter() {
 			@Override
 			public void keyReleased(KeyEvent e) {
@@ -261,7 +243,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		buttonsPanel.add(btnSave);
 		btnSave.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
-				saveRules();
+				save();
 			}
 		});
 		btnSave.setEnabled(false);
@@ -270,45 +252,16 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		buttonsPanel.add(btnOpen);
 		btnOpen.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
-				openRules();
+				open();
 			}
 		});
 		
 		btnLoadFromClipboard = new JButton("Load from clipboard");
-//		btnLoadFromClipboard.addActionListener(new ActionListener() {
-//			public void actionPerformed(ActionEvent e) {
-//				Toolkit toolkit = Toolkit.getDefaultToolkit();
-//				Clipboard clipboard = toolkit.getSystemClipboard();
-//				try {
-//					String result = (String) clipboard.getData(DataFlavor.stringFlavor);
-////					AssociationRule rule;
-////					List<AssociationRule> rulesList = new ArrayList<>();
-//					Pattern rulePattern = Pattern.compile("(\\d+).\\s+(.+)\\s+(\\d+)\\s+==>\\s+(.+)\\s+(\\d+)\\s+(.*)");
-//					Pattern p;
-//					Matcher m;
-//					String line;
-//					Scanner scanner = new Scanner(result);
-//					while (scanner.hasNextLine()) {
-//						line = (String) scanner.nextLine();
-//						m = rulePattern.matcher(line);
-//						if (m.find()) {
-//							p = Pattern.compile("(\\d. )(.+)( \\d+) ==>");
-//							m = p.matcher(line);
-//							if (m.find()) {
-//								String premisse = m.group(2);
-//								
-//								String[] consequent;
-//							}
-//						}
-//						
-//					}
-//					scanner.close();
-////					AssociationRules rules = new AssociationRules(rulesList);
-//				} catch (UnsupportedFlavorException | IOException ex) {
-//					ex.printStackTrace();
-//				}
-//			}
-//		});
+		btnLoadFromClipboard.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				loadFromClipboard();
+			}
+		});
 		buttonsPanel.add(btnLoadFromClipboard);
 		
 		btnExport = new JButton("Export...");
@@ -321,139 +274,152 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		btnExport.setEnabled(false);
 		
 		rulesFilterPanel = new JPanel();
-		panel.add(rulesFilterPanel, BorderLayout.SOUTH);
+		panel.add(rulesFilterPanel, BorderLayout.CENTER);
 		rulesFilterPanel.setBorder(new TitledBorder(null, "Filter for rules", TitledBorder.LEADING, TitledBorder.TOP, null, null));
-		rulesFilterPanel.setLayout(new BorderLayout(0, 0));
-		
-		rulesFilterNorth = new JPanel();
-		rulesFilterPanel.add(rulesFilterNorth, BorderLayout.NORTH);
-		
-		logicalOperatorPanel = new JPanel();
-		logicalOperatorPanel.setLayout(new BoxLayout(logicalOperatorPanel, BoxLayout.Y_AXIS));
+		GridBagLayout gbl_rulesFilterPanel = new GridBagLayout();
+		gbl_rulesFilterPanel.columnWidths = new int[]{0, 0, 0, 0, 0, 0, 0, 0};
+		gbl_rulesFilterPanel.rowHeights = new int[]{0, 0, 0, 0};
+		gbl_rulesFilterPanel.columnWeights = new double[]{1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, Double.MIN_VALUE};
+		gbl_rulesFilterPanel.rowWeights = new double[]{0.0, 0.0, 0.0, Double.MIN_VALUE};
+		rulesFilterPanel.setLayout(gbl_rulesFilterPanel);
 		
 		lblLogicalOperator = new JLabel("Logical Operator:");
+		GridBagConstraints gbc_lblLogicalOperator = new GridBagConstraints();
+		gbc_lblLogicalOperator.anchor = GridBagConstraints.WEST;
+		gbc_lblLogicalOperator.insets = new Insets(0, 0, 5, 5);
+		gbc_lblLogicalOperator.gridx = 0;
+		gbc_lblLogicalOperator.gridy = 0;
+		rulesFilterPanel.add(lblLogicalOperator, gbc_lblLogicalOperator);
 		lblLogicalOperator.setAlignmentX(Component.RIGHT_ALIGNMENT);
 		lblLogicalOperator.setVerticalAlignment(SwingConstants.TOP);
-		logicalOperatorPanel.add(lblLogicalOperator);
-		
-		comboLogicalOperator = new JComboBox<String>();
-		lblLogicalOperator.setLabelFor(comboLogicalOperator);
-		logicalOperatorPanel.add(comboLogicalOperator);
-		comboLogicalOperator.setEnabled(false);
-		comboLogicalOperator.setModel(new DefaultComboBoxModel<String>(new String[] {"AND", "OR"}));
-		FlowLayout fl_rulesFilterNorth = new FlowLayout(FlowLayout.LEFT, 5, 5);
-		rulesFilterNorth.setLayout(fl_rulesFilterNorth);
-		rulesFilterNorth.add(logicalOperatorPanel);
-		
-		tableColumnPanel = new JPanel();
-		rulesFilterNorth.add(tableColumnPanel);
-		tableColumnPanel.setLayout(new BoxLayout(tableColumnPanel, BoxLayout.Y_AXIS));
 		
 		lblXy = new JLabel("Antecedent / Consequent:");
-		tableColumnPanel.add(lblXy);
+		GridBagConstraints gbc_lblXy = new GridBagConstraints();
+		gbc_lblXy.anchor = GridBagConstraints.WEST;
+		gbc_lblXy.insets = new Insets(0, 0, 5, 5);
+		gbc_lblXy.gridx = 1;
+		gbc_lblXy.gridy = 0;
+		rulesFilterPanel.add(lblXy, gbc_lblXy);
 		lblXy.setAlignmentX(Component.CENTER_ALIGNMENT);
 		lblXy.setLabelFor(comboTableColumn);
 		
-		comboTableColumn = new JComboBox<ComboBoxItem>();
-		tableColumnPanel.add(comboTableColumn);
-		comboTableColumn.setEnabled(false);
-		comboTableColumn.addItemListener(new ItemListener() {
-			public void itemStateChanged(ItemEvent arg0) {
-				if (comboTableColumn.getSelectedIndex() > -1) {
-					comboAttribute.removeAllItems();
-					int key = (int) ((ComboBoxItem) comboTableColumn.getSelectedItem()).getKey();
-					for (FilterMapAttribute f : filterMapList[key].getAttributes()) {
-						comboAttribute.addItem(new ComboBoxItem(f, f.getAttribute()));
-					}
-				}
-			}
-		});
-		
-		comparisonTypePanel = new JPanel();
-		rulesFilterNorth.add(comparisonTypePanel);
-		comparisonTypePanel.setLayout(new BoxLayout(comparisonTypePanel, BoxLayout.Y_AXIS));
-		
 		lblComparisonType = new JLabel("Comparison Type:");
+		GridBagConstraints gbc_lblComparisonType = new GridBagConstraints();
+		gbc_lblComparisonType.anchor = GridBagConstraints.WEST;
+		gbc_lblComparisonType.insets = new Insets(0, 0, 5, 5);
+		gbc_lblComparisonType.gridx = 2;
+		gbc_lblComparisonType.gridy = 0;
+		rulesFilterPanel.add(lblComparisonType, gbc_lblComparisonType);
 		lblComparisonType.setAlignmentX(Component.CENTER_ALIGNMENT);
-		comparisonTypePanel.add(lblComparisonType);
+		
+		lblAttribute = new JLabel("Attribute:");
+		GridBagConstraints gbc_lblAttribute = new GridBagConstraints();
+		gbc_lblAttribute.anchor = GridBagConstraints.WEST;
+		gbc_lblAttribute.insets = new Insets(0, 0, 5, 5);
+		gbc_lblAttribute.gridx = 3;
+		gbc_lblAttribute.gridy = 0;
+		rulesFilterPanel.add(lblAttribute, gbc_lblAttribute);
+		
+		lblLabel = new JLabel("Label:");
+		GridBagConstraints gbc_lblLabel = new GridBagConstraints();
+		gbc_lblLabel.anchor = GridBagConstraints.WEST;
+		gbc_lblLabel.insets = new Insets(0, 0, 5, 5);
+		gbc_lblLabel.gridx = 4;
+		gbc_lblLabel.gridy = 0;
+		rulesFilterPanel.add(lblLabel, gbc_lblLabel);
+		lblLogicalOperator.setLabelFor(comboLogicalOperator);
+		
+		comboLogicalOperator = new JComboBox<String>();
+		GridBagConstraints gbc_comboLogicalOperator = new GridBagConstraints();
+		gbc_comboLogicalOperator.fill = GridBagConstraints.HORIZONTAL;
+		gbc_comboLogicalOperator.insets = new Insets(0, 0, 5, 5);
+		gbc_comboLogicalOperator.gridx = 0;
+		gbc_comboLogicalOperator.gridy = 1;
+		rulesFilterPanel.add(comboLogicalOperator, gbc_comboLogicalOperator);
+		comboLogicalOperator.setEnabled(false);
+		comboLogicalOperator.setModel(new DefaultComboBoxModel<String>(new String[] {"AND", "OR"}));
+		
+		comboTableColumn = new JComboBox<ComboBoxItem>();
+		GridBagConstraints gbc_comboTableColumn = new GridBagConstraints();
+		gbc_comboTableColumn.fill = GridBagConstraints.HORIZONTAL;
+		gbc_comboTableColumn.insets = new Insets(0, 0, 5, 5);
+		gbc_comboTableColumn.gridx = 1;
+		gbc_comboTableColumn.gridy = 1;
+		rulesFilterPanel.add(comboTableColumn, gbc_comboTableColumn);
+		comboTableColumn.setEnabled(false);
 		
 		comboComparisonType = new JComboBox<String>();
-		comparisonTypePanel.add(comboComparisonType);
+		GridBagConstraints gbc_comboComparisonType = new GridBagConstraints();
+		gbc_comboComparisonType.fill = GridBagConstraints.HORIZONTAL;
+		gbc_comboComparisonType.insets = new Insets(0, 0, 5, 5);
+		gbc_comboComparisonType.gridx = 2;
+		gbc_comboComparisonType.gridy = 1;
+		rulesFilterPanel.add(comboComparisonType, gbc_comboComparisonType);
 		comboComparisonType.setEnabled(false);
 		comboComparisonType.setModel(new DefaultComboBoxModel<String>(new String[] {"CONTAINS", "EQUALS"}));
 		
-		attributePanel = new JPanel();
-		attributePanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-		rulesFilterNorth.add(attributePanel);
-		attributePanel.setLayout(new BoxLayout(attributePanel, BoxLayout.Y_AXIS));
-		
-		lblAttribute = new JLabel("Attribute:");
-		attributePanel.add(lblAttribute);
-		
 		comboAttribute = new JComboBox<ComboBoxItem>();
+		GridBagConstraints gbc_comboAttribute = new GridBagConstraints();
+		gbc_comboAttribute.fill = GridBagConstraints.HORIZONTAL;
+		gbc_comboAttribute.insets = new Insets(0, 0, 5, 5);
+		gbc_comboAttribute.gridx = 3;
+		gbc_comboAttribute.gridy = 1;
+		rulesFilterPanel.add(comboAttribute, gbc_comboAttribute);
 		comboAttribute.setAlignmentX(Component.LEFT_ALIGNMENT);
-		attributePanel.add(comboAttribute);
 		comboAttribute.setEnabled(false);
-		comboAttribute.addItemListener(new ItemListener() {
-			public void itemStateChanged(ItemEvent e) {
-				if (comboAttribute.getSelectedIndex() > -1) {
-					comboLabel.removeAllItems();
-					comboLabel.addItem("All");
-					FilterMapAttribute selected = (FilterMapAttribute) ((ComboBoxItem) comboAttribute.getSelectedItem()).getKey();
-					for (String v : selected.getValues()) {
-						comboLabel.addItem(v);
-					}
-				}
-			}
-		});
-		
-		labelPanel = new JPanel();
-		rulesFilterNorth.add(labelPanel);
-		labelPanel.setLayout(new BoxLayout(labelPanel, BoxLayout.Y_AXIS));
-		
-		lblLabel = new JLabel("Label:");
-		labelPanel.add(lblLabel);
 		
 		comboLabel = new JComboBox<String>();
+		GridBagConstraints gbc_comboLabel = new GridBagConstraints();
+		gbc_comboLabel.fill = GridBagConstraints.HORIZONTAL;
+		gbc_comboLabel.insets = new Insets(0, 0, 5, 5);
+		gbc_comboLabel.gridx = 4;
+		gbc_comboLabel.gridy = 1;
+		rulesFilterPanel.add(comboLabel, gbc_comboLabel);
 		comboLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
-		labelPanel.add(comboLabel);
 		comboLabel.setEnabled(false);
 		
-		addPanel = new JPanel();
-		rulesFilterNorth.add(addPanel);
-		addPanel.setLayout(new BoxLayout(addPanel, BoxLayout.Y_AXIS));
-		
-		lblAdd = new JLabel("Add");
-		lblAdd.setForeground(SystemColor.menu);
-		addPanel.add(lblAdd);
-		
 		btnAdd = new JButton("Add");
-		addPanel.add(btnAdd);
-		btnAdd.setAlignmentX(Component.CENTER_ALIGNMENT);
+		GridBagConstraints gbc_btnAdd = new GridBagConstraints();
+		gbc_btnAdd.fill = GridBagConstraints.HORIZONTAL;
+		gbc_btnAdd.gridwidth = 2;
+		gbc_btnAdd.insets = new Insets(0, 0, 5, 0);
+		gbc_btnAdd.gridx = 5;
+		gbc_btnAdd.gridy = 1;
+		rulesFilterPanel.add(btnAdd, gbc_btnAdd);
 		btnAdd.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
 				addFilter();
 			}
 		});
 		btnAdd.setEnabled(false);
-		
-		rulesFilterSouth = new JPanel();
-		rulesFilterPanel.add(rulesFilterSouth);
-		rulesFilterSouth.setLayout(new BoxLayout(rulesFilterSouth, BoxLayout.X_AXIS));
-		rulesFilterSouth.add(comboFilter);
+		GridBagConstraints gbc_comboFilter = new GridBagConstraints();
+		gbc_comboFilter.gridwidth = 5;
+		gbc_comboFilter.fill = GridBagConstraints.HORIZONTAL;
+		gbc_comboFilter.insets = new Insets(0, 0, 0, 5);
+		gbc_comboFilter.gridx = 0;
+		gbc_comboFilter.gridy = 2;
+		rulesFilterPanel.add(comboFilter, gbc_comboFilter);
 		comboFilter.setEnabled(false);
 		comboFilter.setEditable(true);
 		
 		btnApply = new JButton("Apply");
-		rulesFilterSouth.add(btnApply);
+		GridBagConstraints gbc_btnApply = new GridBagConstraints();
+		gbc_btnApply.insets = new Insets(0, 0, 0, 5);
+		gbc_btnApply.gridx = 5;
+		gbc_btnApply.gridy = 2;
+		rulesFilterPanel.add(btnApply, gbc_btnApply);
 		btnApply.setEnabled(false);
 		
 		btnClear = new JButton("Clear");
-		rulesFilterSouth.add(btnClear);
+		GridBagConstraints gbc_btnClear = new GridBagConstraints();
+		gbc_btnClear.gridx = 6;
+		gbc_btnClear.gridy = 2;
+		rulesFilterPanel.add(btnClear, gbc_btnClear);
 		btnClear.setEnabled(false);
 		btnClear.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
 				comboFilter.setSelectedIndex(-1);
+				comboFilterComponent.setText("");
 				sorter.setRowFilter(null);
 				lblFilteredRulesValue.setText(String.valueOf(table.getRowCount()));
 				comboLogicalOperator.setEnabled(false);
@@ -465,7 +431,13 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 				if (filter.length() == 0) {
 					sorter.setRowFilter(null);
 				} else {
-					sorter.setRowFilter(buildRulesFilter(filter));
+					Pattern p = Pattern.compile("^(X|Y)\\[.+\\]$");
+					Matcher m = p.matcher(filter);
+					if (m.find()) {
+						sorter.setRowFilter(buildRulesFilter(filter));
+					} else {
+						sorter.setRowFilter(RowFilter.regexFilter(filter, 0, 1));
+					}
 					comboFilter.addItem(filter);
 					comboFilter.setSelectedIndex(0);
 					lblFilteredRulesValue.setText(String.valueOf(table.getRowCount()));
@@ -479,6 +451,29 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		comboFilter.addItemListener(new ItemListener() {
 			public void itemStateChanged(ItemEvent e) {
 				comboLogicalOperator.setEnabled(comboFilterComponent.getText().isEmpty() ? false : true);
+			}
+		});
+		comboAttribute.addItemListener(new ItemListener() {
+			public void itemStateChanged(ItemEvent e) {
+				if (comboAttribute.getSelectedIndex() > -1) {
+					comboLabel.removeAllItems();
+					comboLabel.addItem("All");
+					FilterMapAttribute selected = (FilterMapAttribute) ((ComboBoxItem) comboAttribute.getSelectedItem()).getKey();
+					for (String v : selected.getValues()) {
+						comboLabel.addItem(v);
+					}
+				}
+			}
+		});
+		comboTableColumn.addItemListener(new ItemListener() {
+			public void itemStateChanged(ItemEvent arg0) {
+				if (comboTableColumn.getSelectedIndex() > -1) {
+					comboAttribute.removeAllItems();
+					int key = (int) ((ComboBoxItem) comboTableColumn.getSelectedItem()).getKey();
+					for (FilterMapAttribute f : filterMapList[key].getAttributes()) {
+						comboAttribute.addItem(new ComboBoxItem(f, f.getAttribute()));
+					}
+				}
 			}
 		});
 		
@@ -601,7 +596,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		metricsFilterPanel.add(spinConviction, gbc_spinConviction);
 		metricSpinnerMap.put("Conviction", spinConviction);
 		
-		btnReset = new JButton("Reset");
+		btnReset = new JButton("Reset values");
 		btnReset.setEnabled(false);
 		btnReset.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
@@ -647,94 +642,24 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		
 		table = new JTable();
 		
-		/* Forces tab selection every time the data model in table was changed.
+		/* Forces tab selection every time the data model in table is changed.
 		 * I need to select this tab after click on visualization menu item
 		 * at associate tab. It's the only way i've found to do that.
-		 * Probabily is not the beter way.
+		 * Probabily is not the better way.
 		 */
 		table.addPropertyChangeListener(new PropertyChangeListener() {
 			
 			@Override
 			public void propertyChange(PropertyChangeEvent e) {
-				
 				if (e.getPropertyName().equals("model")) {
 					selectTab();
 				}
-				
 			}
 			
 		});
 		
 		scrollPaneTable.setViewportView(table);
 
-	}
-
-	private void exportToCsv() {
-
-		String csvData = "";
-		FileFilter fileFilter = new FileNameExtensionFilter("CSV file: comma separated files", new String[] {"csv"});
-//		fileChooser.get
-		fileChooser.addChoosableFileFilter(fileFilter);
-		fileChooser.setFileFilter(fileFilter);
-//		fileChooser.setSelectedFile(new File("teste.csv"));
-		int option = fileChooser.showSaveDialog(this);
-		if (option == JFileChooser.APPROVE_OPTION) {
-			File file = fileChooser.getSelectedFile();
-			String fileName = file.getName();
-			if (!fileName.endsWith(".csv")) {
-				fileName += ".csv";
-			}
-			
-			List<String> visibleColumns = new ArrayList<>();
-			TableModel tableModel = table.getModel();
-			int columnCount = tableModel.getColumnCount();
-			int modelRowCount = tableModel.getRowCount();
-			int tableRowCount = table.getRowCount();
-			
-			Enumeration<TableColumn> columns = table.getColumnModel().getColumns();
-			while (columns.hasMoreElements()) {
-				TableColumn tableColumn = (TableColumn) columns.nextElement();
-				visibleColumns.add(tableColumn.getHeaderValue().toString());
-			}
-			
-			for (int i = 0; i < columnCount; i++) {
-				csvData += i > 0 ? "," : "";
-				String columnName = tableModel.getColumnName(i);
-				if (visibleColumns.contains(columnName)) {
-					csvData += "\"" + columnName + "\"";
-				}
-				if (csvData.endsWith(",")) {
-					csvData = csvData.substring(0, csvData.length() - 1);
-				}
-			}
-			csvData += "\r\n";
-			for (int i = 0; i < tableRowCount; i++) {
-				for (int j = 0; j < columnCount; j++) {
-					csvData += j > 0 ? "," : "";
-					String columnName = tableModel.getColumnName(j);
-					if (visibleColumns.contains(columnName)) {
-						if (tableRowCount < modelRowCount) {
-							csvData += "\"" + tableModel.getValueAt(table.convertColumnIndexToModel(i), j) + "\"";
-						} else {
-							csvData += "\"" + tableModel.getValueAt(i, j) + "\"";
-						}
-					}
-					if (csvData.endsWith(",")) {
-						csvData = csvData.substring(0, csvData.length() - 1);
-					}
-				}
-				csvData += "\r\n";
-			}
-			try {
-				FileWriter w = new FileWriter(file);
-				w.write(csvData);
-				w.flush();
-				w.close();
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-		}
-		
 	}
 
 	@SuppressWarnings("unchecked")
@@ -827,41 +752,173 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		
 	}
 
-	@SuppressWarnings("unchecked")
-	private void openRules() {
-
-		int option = fileChooser.showSaveDialog(this);
-		if (option == JFileChooser.APPROVE_OPTION) {
-			File file = fileChooser.getSelectedFile();
-			try {
-				FileInputStream fis = new FileInputStream(file);
-				ObjectInputStream ois = new ObjectInputStream(fis);	
-				associationRules = (AssociationRules) ois.readObject();
-				loadRules(associationRules);
-				comboFilter.setModel((ComboBoxModel<Object>) ois.readObject());
-				ois.close();
-			} catch (IOException | ClassNotFoundException e) {
-				e.printStackTrace();
-			}
+	private void exportToCsv() {
+	
+		if (thread == null) {
+			thread = new Thread() {
+				@Override
+				public void run() {
+					String csvData = "";
+					FileFilter fileFilter = new FileNameExtensionFilter("CSV file: comma separated files", new String[] {"csv"});
+					fileChooser.addChoosableFileFilter(fileFilter);
+					fileChooser.setFileFilter(fileFilter);
+					int option = fileChooser.showSaveDialog(rulesPanel);
+					if (option == JFileChooser.APPROVE_OPTION) {
+						log.statusMessage("Exporting rules...");
+						File file = fileChooser.getSelectedFile();
+						String fileName = file.getName();
+						if (!fileName.endsWith(".csv")) {
+							fileName += ".csv";
+						}
+						
+						List<String> visibleColumns = new ArrayList<>();
+						TableModel tableModel = table.getModel();
+						int columnCount = tableModel.getColumnCount();
+						int modelRowCount = tableModel.getRowCount();
+						int tableRowCount = table.getRowCount();
+						
+						Enumeration<TableColumn> columns = table.getColumnModel().getColumns();
+						while (columns.hasMoreElements()) {
+							TableColumn tableColumn = (TableColumn) columns.nextElement();
+							visibleColumns.add(tableColumn.getHeaderValue().toString());
+						}
+						
+						for (int i = 0; i < columnCount; i++) {
+							csvData += i > 0 ? "," : "";
+							String columnName = tableModel.getColumnName(i);
+							if (visibleColumns.contains(columnName)) {
+								csvData += "\"" + columnName + "\"";
+							}
+							if (csvData.endsWith(",")) {
+								csvData = csvData.substring(0, csvData.length() - 1);
+							}
+						}
+						csvData += "\r\n";
+						for (int i = 0; i < tableRowCount; i++) {
+							for (int j = 0; j < columnCount; j++) {
+								csvData += j > 0 ? "," : "";
+								String columnName = tableModel.getColumnName(j);
+								if (visibleColumns.contains(columnName)) {
+									if (tableRowCount < modelRowCount) {
+										csvData += "\"" + tableModel.getValueAt(table.convertColumnIndexToModel(i), j) + "\"";
+									} else {
+										csvData += "\"" + tableModel.getValueAt(i, j) + "\"";
+									}
+								}
+								if (csvData.endsWith(",")) {
+									csvData = csvData.substring(0, csvData.length() - 1);
+								}
+							}
+							csvData += "\r\n";
+						}
+						try {
+							FileWriter w = new FileWriter(file);
+							w.write(csvData);
+							w.flush();
+							w.close();
+							log.statusMessage("Exporting rules... done!");
+						} catch (IOException e) {
+							log.statusMessage("Exporting rules... failed!");
+							e.printStackTrace();
+						}
+					}
+					thread = null;
+				}
+			};
+			thread.setPriority(Thread.MIN_PRIORITY);
+			thread.start();
+		} else {
+			JOptionPane.showMessageDialog(this,
+				    "Can't export at this time,\n"
+				    + "currently busy with other IO.",
+				    "IO operation in progress...",
+				    JOptionPane.WARNING_MESSAGE);
 		}
 		
 	}
 
-	private void saveRules() {
+	@SuppressWarnings("unchecked")
+	private void open() {
+		
+		if (thread == null) {
+			thread = new Thread() {
+				@Override
+				public void run() {
+					int option = fileChooser.showOpenDialog(rulesPanel);
+					if (option == JFileChooser.APPROVE_OPTION) {
+						log.statusMessage("Opening rules...");
+						File file = fileChooser.getSelectedFile();
+						try {
+							FileInputStream fis = new FileInputStream(file);
+							ObjectInputStream ois = new ObjectInputStream(fis);	
+							mappedRules = (List<Map<String, String>>) ois.readObject();
+							loadRules(mappedRules);
+							comboFilter.setModel((ComboBoxModel<Object>) ois.readObject());
+							ois.close();
+							log.statusMessage("Opening rules... done!");
+						} catch (IOException | ClassNotFoundException e) {
+							log.statusMessage("Opening rules... failed!");
+							e.printStackTrace();
+						}
+					}
+					thread = null;
+				}
+			};
+			thread.setPriority(Thread.MIN_PRIORITY);
+			thread.start();
+		} else {
+			JOptionPane.showMessageDialog(this,
+				    "Can't open at this time,\n"
+				    + "currently busy with other IO.",
+				    "IO operation in progress...",
+				    JOptionPane.WARNING_MESSAGE);
+		}
+		
+	}
 
-		int option = fileChooser.showSaveDialog(this);
-		if (option == JFileChooser.APPROVE_OPTION) {
-			File file = fileChooser.getSelectedFile();
-			try {
-				FileOutputStream fos = new FileOutputStream(file);
-				ObjectOutputStream oos = new ObjectOutputStream(fos);
-				oos.writeObject(associationRules);
-				oos.writeObject(comboFilter.getModel());
-				oos.close();
-			} catch (Exception e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
+	private void save() {
+		
+		if (thread == null) {
+			thread = new Thread() {
+				@Override
+				public void run() {
+
+					int option = fileChooser.showSaveDialog(rulesPanel);
+					if (option == JFileChooser.APPROVE_OPTION) {
+						log.statusMessage("Saving rules...");
+						File file = fileChooser.getSelectedFile();
+						try {
+											
+							FileOutputStream fos = new FileOutputStream(file);
+							ObjectOutputStream oos = new ObjectOutputStream(fos);
+							oos.writeObject(mappedRules);
+							oos.writeObject(comboFilter.getModel());
+							
+							/* Need to be reinitialized to prevent unexpected behavior from
+							 * JComboBox component after calling getModel method.
+							 */
+							comboFilterComponent = (JTextField) comboFilter.getEditor().getEditorComponent();
+							
+							oos.close();
+							
+							log.statusMessage("Saving rules... done!");
+							
+						} catch (Exception e) {
+							log.statusMessage("Saving rules... failed!");
+							e.printStackTrace();
+						}
+					}
+					thread = null;
+				}
+			};
+			thread.setPriority(Thread.MIN_PRIORITY);
+			thread.start();
+		} else {
+			JOptionPane.showMessageDialog(this,
+				    "Can't save at this time,\n"
+				    + "currently busy with other IO.",
+				    "IO operation in progress...",
+				    JOptionPane.WARNING_MESSAGE);
 		}
 		
 	}
@@ -1170,33 +1227,227 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		getExplorer().getTabbedPane().setSelectedComponent(this);
 		
 	}
+	
+	/**
+	 * Initializes filter for metrics 
+	 */
+	private static void initMetrics() {
+		
+		for (Map.Entry<String, JSpinner> entry : metricSpinnerMap.entrySet()) {
+			
+			JSpinner spinner = (entry.getValue());
+			
+			/* Maximum and minimum values for metrics */
+			
+			SpinnerNumberModel spinModel = (SpinnerNumberModel) spinner.getModel();
+			int colIndex = table.getColumnModel().getColumnIndex(entry.getKey());
+			double spinModelMax = Utils.getColumnMaxValue(table, colIndex);
+			double spinModelMin = Utils.getColumnMinValue(table, colIndex);
+			spinModel.setMaximum(spinModelMax);
+			spinModel.setMinimum(spinModelMin);
+			spinModel.setValue(spinModelMin);
+
+			/* Set listeners for spinners to filter minimum metric values */
+			
+			spinner.addChangeListener(new ChangeListener() {
+				public void stateChanged(ChangeEvent e) {
+					onMetricValueChange();
+				}
+			});
+			
+			/* Enables component */
+			
+			spinner.setEnabled(true);
+			
+		}
+		
+		ActionListener metricVisibilityListener = new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				onMetricVisibilityChange(e);
+			}
+		};
+
+		chckbxSupport.addActionListener(metricVisibilityListener);
+		chckbxConfidence.addActionListener(metricVisibilityListener);
+		chckbxLift.addActionListener(metricVisibilityListener);
+		chckbxLeverage.addActionListener(metricVisibilityListener);
+		chckbxConviction.addActionListener(metricVisibilityListener);
+		
+		chckbxSupport.setEnabled(true);
+		chckbxConfidence.setEnabled(true);
+		chckbxLift.setEnabled(true);
+		chckbxLeverage.setEnabled(true);
+		chckbxConviction.setEnabled(true);
+		
+		btnReset.setEnabled(true);
+		
+	}
+	
+	/**
+	 * Loads rules from clipboard
+	 */
+	private void loadFromClipboard() {
+	
+		Toolkit toolkit = Toolkit.getDefaultToolkit();
+		Clipboard clipboard = toolkit.getSystemClipboard();
+		try {
+			List<Map<String, String>> rulesList = new ArrayList<>();
+			Map<String, String> rule;
+			String result = (String) clipboard.getData(DataFlavor.stringFlavor);
+			Pattern rulePattern = Pattern.compile("(\\d+).\\s+(.+)\\s+(\\d+)\\s+==>\\s+(.+)\\s+(\\d+)\\s+(.*)");
+			Pattern transactionPattern = Pattern.compile("Instances:\\s+(\\d+)");
+			Matcher m;
+			String nTransactions = "";
+			String line;
+			Scanner scanner = new Scanner(result);
+			while (scanner.hasNextLine()) {
+				line = (String) scanner.nextLine();
+				m = transactionPattern.matcher(line);
+				if (m.find()) {
+					nTransactions = m.group(1);
+				}
+				m = rulePattern.matcher(line);
+				if (m.find()) {
+					
+					rule = new LinkedHashMap<String, String>();
+					
+					/* Antecedent */
+					String antecedent = m.group(2);
+					
+					/* Consequent */
+					String consequent = m.group(4);
+					
+					/* Support */
+					String supportX = m.group(3);
+					double s = Double.parseDouble(supportX);
+					double t = Double.parseDouble(nTransactions);
+					double support = weka.core.Utils.roundDouble((s / t), 2);
+					
+					rule.put("Antecedent (X)", antecedent.trim());
+					rule.put("Consequent (Y)", consequent.trim());
+					rule.put("Support", String.valueOf(support));
+					
+					/* Metrics */
+					String metrics = m.group(6);
+					String[] splitMetrics = metrics.split(" ");
+					Pattern metricPattern = Pattern.compile("(\\w+):\\((.+)\\)");
+					Matcher metricMatcher;
+					for (String metric : splitMetrics) {
+						metricMatcher = metricPattern.matcher(metric);
+						if (metricMatcher.find()) {
+							String shortMetricName = metricMatcher.group(1);
+							String metricValue = metricMatcher.group(2);
+							String metricName = "";
+							switch (shortMetricName) {
+							case "conf":
+								metricName = "Confidence";
+								break;
+							case "lift":
+								metricName = "Lift";
+								break;
+							case "lev":
+								metricName = "Leverage";
+								break;
+							case "conv":
+								metricName = "Conviction";
+								break;
+							}
+							rule.put(metricName, metricValue);
+						}
+					}
+					
+					rulesList.add(rule);
+					
+				}
+				
+			}
+			scanner.close();
+			if (rulesList.size() > 0) {
+				loadRules(rulesList);
+			}
+		} catch (UnsupportedFlavorException | IOException ex) {
+			ex.printStackTrace();
+		}
+		
+	}
+
+	/**
+	 * Loads rules from an {@link AssociationRules} object
+	 *
+	 * @param  rules  the association rules
+	 */
+	public static void loadFromObject(AssociationRules rules) {
+		
+		List<Map<String, String>> rulesList = new ArrayList<>();
+		Map<String, String> rule;
+		
+		/* Metric names */
+		String[] metrics = rules.getRules().get(0).getMetricNamesForRule();
+		
+		for (AssociationRule r : rules.getRules()) {
+			
+			rule = new LinkedHashMap<String, String>();
+			
+			/* Antecedent */
+			String antecedent = "";
+			for (Item p : r.getPremise()) {
+				antecedent += p + " ";
+			}
+			
+			/* Consequent */
+			String consequent = "";
+			for (Item c : r.getConsequence()) {		
+				consequent += c + " ";
+			}
+			
+			/* Support */
+			double supportTemp = ((double) r.getPremiseSupport()) / r.getTotalTransactions();
+			double support = weka.core.Utils.roundDouble(supportTemp, 2);
+			
+			/* Adds antecedent, consequent and support */
+			rule.put("Antecedent (X)", antecedent.trim());
+			rule.put("Consequent (Y)", consequent.trim());
+			rule.put("Support", String.valueOf(support));
+			
+			/* Adds metric values */
+			for (String m: metrics) {
+				try {
+					double metricValue = r.getNamedMetricValue(m);
+					double roundedValue = weka.core.Utils.roundDouble(metricValue, 2);
+					rule.put(m, String.valueOf(roundedValue));
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
+			
+			rulesList.add(rule);			
+			
+		}
+		
+		loadRules(rulesList);
+		
+	}
 
 	/**
 	 * Loads rules into a JTable
 	 *
-	 * @param  rules  the association rules
+	 * @param  rules  the list of mapped rules
 	 */
-	public static void loadRules(AssociationRules rules) {
+	private static void loadRules(List<Map<String, String>> rules) {
 		
 		table.setModel(new RulesTableModel());
 		table.setColumnModel(new RulesTableColumnModel());
+		table.getTableHeader().setReorderingAllowed(false);
 		
-		associationRules = rules;
-		
-		List<AssociationRule> rulesList = rules.getRules();
+		mappedRules = rules;
 		
 		/* Get table model */
 		final DefaultTableModel tableModel = (DefaultTableModel) table.getModel();
 
-		/* Metric names */
-		String[] metrics = rulesList.get(0).getMetricNamesForRule();
-		
 		/* Columns */
-		tableModel.addColumn("Antecedent (X)");
-		tableModel.addColumn("Consequent (Y)");
-		tableModel.addColumn("Support");
-		for (String m : metrics) {
-			tableModel.addColumn(m);
+		for (Map.Entry<String, String> e : rules.get(0).entrySet()) {
+			tableModel.addColumn(e.getKey());
 		}
 		
 		/* Get column model */
@@ -1259,25 +1510,44 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		});
 		
 		/* Adds rules to table */
-		for (AssociationRule r : rulesList) {
+		for (Map<String, String> r : rules) {
+			
+			Collection<String> mapValues = r.values();
+			Iterator<String> iterator = mapValues.iterator();
 			
 			/* Antecedent */
-			String antecedent = "";
-			for (Item p : r.getPremise()) {
-				antecedent += p + " ";
-				filterMapList[0].addAttributeValue(p.toString());
+			String antecedent = iterator.next();
+			String[] splitAntecedent = antecedent.split(" ");
+			for (int i = 0; i < splitAntecedent.length; i++) {
+				String s = splitAntecedent[i];
+				int proximo = i + 1;
+				if (proximo < splitAntecedent.length) {
+					if (!splitAntecedent[proximo].matches("(.*)=(.*)")) {
+						s += " " + splitAntecedent[proximo];
+						i = proximo;
+					}
+				}
+				filterMapList[0].addAttributeValue(s);
 			}
 			
 			/* Consequent */
-			String consequent = "";
-			for (Item c : r.getConsequence()) {		
-				consequent += c + " ";
-				filterMapList[1].addAttributeValue(c.toString());	
+			String consequent = iterator.next();
+			String[] splitConsequent = consequent.split(" ");
+			for (int i = 0; i < splitConsequent.length; i++) {
+				String s = splitConsequent[i];
+				int proximo = i + 1;
+				if (proximo < splitConsequent.length) {
+					if (!splitConsequent[proximo].matches("(.*)=(.*)")) {
+						s += " " + splitConsequent[proximo];
+						i = proximo;
+					}
+				}
+				filterMapList[1].addAttributeValue(s);
 			}
 
 			/* Support */
-			double supportTemp = ((double) r.getTotalSupport()) / r.getTotalTransactions();
-			double support = weka.core.Utils.roundDouble(supportTemp, 2);
+			String supportTemp = iterator.next();
+			double support = Double.parseDouble(supportTemp);
 			
 			/* List containing each column's content to be added to table */
 			List<Object> row = new ArrayList<Object>();
@@ -1288,14 +1558,9 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 			row.add(support);
 			
 			/* Adds metric values */
-			for (String m: metrics) {
-				try {
-					double metricValue = r.getNamedMetricValue(m);
-					double roundedValue = weka.core.Utils.roundDouble(metricValue, 2);
-					row.add(roundedValue);
-				} catch (Exception e) {
-					e.printStackTrace();
-				}
+			while (iterator.hasNext()) {
+				double metricValue = Double.parseDouble(iterator.next());
+				row.add(metricValue);
 			}
 			
 			/* Adds a row with values to table */
@@ -1304,7 +1569,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		}
 		
 		/* Get total values for results */
-		lblTotalRulesValue.setText(String.valueOf(rulesList.size()));
+		lblTotalRulesValue.setText(String.valueOf(rules.size()));
 		lblFilteredRulesValue.setText(String.valueOf(table.getRowCount()));
 		
 		/* Initializes attribute's component */
@@ -1312,6 +1577,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		comboTableColumn.addItem(new ComboBoxItem(0, "Antecedent (X)", "X"));
 		comboTableColumn.addItem(new ComboBoxItem(1, "Consequent (Y)", "Y"));
 		
+		/* Enable components */
 		comboTableColumn.setEnabled(true);
 		comboComparisonType.setEnabled(true);
 		comboAttribute.setEnabled(true);
@@ -1323,55 +1589,8 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		btnSave.setEnabled(true);
 		btnExport.setEnabled(true);
 		
-		for (Map.Entry<String, JSpinner> entry : metricSpinnerMap.entrySet()) {
-			
-			JSpinner spinner = (entry.getValue());
-			
-			/* Maximum and minimum values for metrics */
-			
-			SpinnerNumberModel spinModel = (SpinnerNumberModel) spinner.getModel();
-			int colIndex = table.getColumnModel().getColumnIndex(entry.getKey());
-			double spinModelMax = Utils.getColumnMaxValue(table, colIndex);
-			double spinModelMin = Utils.getColumnMinValue(table, colIndex);
-			spinModel.setMaximum(spinModelMax);
-			spinModel.setMinimum(spinModelMin);
-			spinModel.setValue(spinModelMin);
-
-			/* Set listeners for spinners to filter minimum metric values */
-			
-			spinner.addChangeListener(new ChangeListener() {
-				public void stateChanged(ChangeEvent e) {
-					onMetricValueChange();
-				}
-			});
-			
-			/* Enables component */
-			
-			spinner.setEnabled(true);
-			
-		}
-		
-		ActionListener metricVisibilityListener = new ActionListener() {
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				onMetricVisibilityChange(e);
-			}
-		};
-
-		chckbxSupport.addActionListener(metricVisibilityListener);
-		chckbxConfidence.addActionListener(metricVisibilityListener);
-		chckbxLift.addActionListener(metricVisibilityListener);
-		chckbxLeverage.addActionListener(metricVisibilityListener);
-		chckbxConviction.addActionListener(metricVisibilityListener);
-		
-		chckbxSupport.setEnabled(true);
-		chckbxConfidence.setEnabled(true);
-		chckbxLift.setEnabled(true);
-		chckbxLeverage.setEnabled(true);
-		chckbxConviction.setEnabled(true);
-		
-		btnReset.setEnabled(true);
-		
+		initMetrics();
+					
 	}
 	
 	/** Unused */

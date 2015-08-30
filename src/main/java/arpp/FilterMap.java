@@ -25,19 +25,21 @@ public class FilterMap {
 	public void addAttributeValue(String attributeValue) {
 		
 		String[] splitAttributeValue = attributeValue.split("=");
-		String attribute = splitAttributeValue[0];
-		String value = splitAttributeValue[1];
-		
-		FilterMapAttribute filterMapAttribute = new FilterMapAttribute(attribute);
-		
-		if (!attributes.contains(filterMapAttribute)) {
-			filterMapAttribute.addValue(value);
-			attributes.add(filterMapAttribute);
-		} else {
-			for (FilterMapAttribute a : attributes) {
-				if (attribute.equals(a.getAttribute())) {
-					a.addValue(value);
-					break;
+		if (splitAttributeValue.length > 1) {
+			String attribute = splitAttributeValue[0];
+			String value = splitAttributeValue[1];
+			
+			FilterMapAttribute filterMapAttribute = new FilterMapAttribute(attribute);
+			
+			if (!attributes.contains(filterMapAttribute)) {
+				filterMapAttribute.addValue(value);
+				attributes.add(filterMapAttribute);
+			} else {
+				for (FilterMapAttribute a : attributes) {
+					if (attribute.equals(a.getAttribute())) {
+						a.addValue(value);
+						break;
+					}
 				}
 			}
 		}
