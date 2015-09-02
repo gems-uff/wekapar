@@ -6,10 +6,10 @@
 PackageName=associationRulesPostProcessing
 
 # Version (required)
-Version=0.2.1
+Version=0.3
 
 #Date
-Date=2015-08-30
+Date=2015-09-02
 
 # Title (required)
 Title=associationRulesPostProcessing
@@ -38,4 +38,4 @@ URL=http://www.ufac.br
 #Related=
 
 # Dependencies
-Depends=weka (>=3.7.2)
+Depends=weka (>=3.7.12)

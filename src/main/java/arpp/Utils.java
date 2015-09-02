@@ -1,5 +1,7 @@
 package arpp;
 
+import java.awt.Component;
+import java.awt.Container;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -67,6 +69,24 @@ public class Utils {
 		}
 		
 		return !list.isEmpty() ? Collections.min(list) : 0;
+		
+	}
+
+	
+	/**
+	 * Enable/disable a set of {@link Component} in a {@link Container}.
+	 * 
+	 * @param container the {@link Container} component
+	 * @param enabled true/false for enable or disable each component
+	 */
+	public static void setContainerEnabled(Container container, boolean enabled) {
+		
+		for (Component c : container.getComponents()) {
+			c.setEnabled(enabled);
+			if (c instanceof Container) {
+				setContainerEnabled((Container) c, enabled);
+			}
+		}
 		
 	}
 
