@@ -1023,7 +1023,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 			p = Pattern.compile(column+"\\[\\^(.*?)\\$\\]");
 		    m = p.matcher(componentText);
 		    found = m.find();
-		    if (found) {
+		    if (found && logicalOperator.equals("AND")) {
 				filter = "";
 			} else {
 				filter += "[^";
@@ -1031,7 +1031,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		} else {
 			filter += "[";
 		}
-	    filter += found ? "|" : "";
+	    filter += found && logicalOperator.equals("AND") ? "|" : "";
 		filter += attribute;
 		filter += (!value.equals("All")) ? "=" + value : "";
 		if (value.equals("All") && comparisonOperator.equals("EQUALS")) {
@@ -1042,9 +1042,9 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 				filter += (i + 1) < size ? "|" : "";
 			}
 			filter += ")";
-			filter += found ? "( |)" : "";
 		}
-		if (found) {
+		filter += found && logicalOperator.equals("AND") ? "( |)" : "";
+		if (found && logicalOperator.equals("AND")) {
 			int lastIndex = componentText.lastIndexOf(m.group());
 			int start = componentText.indexOf("^", lastIndex);
 			int end = componentText.indexOf("$", lastIndex);
