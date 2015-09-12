@@ -29,7 +29,7 @@ public class PostprocessAssociationsPlugin implements Serializable, AssociationR
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				
-				PostprocessAssociationsPanel.loadFromObject(rules);
+				PostprocessAssociationsPanel.loadRules(rules);
 				
 			}
 			

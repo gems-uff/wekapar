@@ -82,9 +82,12 @@ public class Utils {
 	public static void setContainerEnabled(Container container, boolean enabled) {
 		
 		for (Component c : container.getComponents()) {
-			c.setEnabled(enabled);
-			if (c instanceof Container) {
-				setContainerEnabled((Container) c, enabled);
+			/* In filter for metrics checkboxes will control respective spinners */
+			if (!(c instanceof MetricSpinner)) {
+				c.setEnabled(enabled);
+				if (c instanceof Container) {
+					setContainerEnabled((Container) c, enabled);
+				}
 			}
 		}
 		

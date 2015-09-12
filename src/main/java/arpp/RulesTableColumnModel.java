@@ -35,5 +35,20 @@ public class RulesTableColumnModel extends DefaultTableColumnModel {
 		}
 		
 	}
+	
+	public boolean hasColumn(Object identifier) {
+		
+		boolean found = false;
+		
+		for (TableColumn tableColumn : tableColumns) {
+			if (tableColumn.getIdentifier().equals(identifier)) {
+				found = true;
+				break;
+			}
+		}
+		
+		return found;
+		
+	}
 
 }

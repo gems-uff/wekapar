@@ -9,10 +9,6 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
 import java.awt.Insets;
-import java.awt.Toolkit;
-import java.awt.datatransfer.Clipboard;
-import java.awt.datatransfer.DataFlavor;
-import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.ItemEvent;
@@ -29,14 +25,10 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Enumeration;
 import java.util.HashMap;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -70,7 +62,6 @@ import javax.swing.filechooser.FileFilter;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableColumn;
-import javax.swing.table.TableColumnModel;
 import javax.swing.table.TableModel;
 import javax.swing.table.TableRowSorter;
 
@@ -111,7 +102,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 	/** Dialog title for busy thread */
 	private static final String THREAD_BUSY_TITLE = "Operation in progress";
 	
-	/** A thread for loading/saving/exporting rules */
+	/** A thread for loading/saving/exporting rules and others */
 	private static Thread thread;
 	
 	/** The parent frame */
@@ -161,10 +152,9 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 	private JButton btnOpen;
 	protected static JButton btnExport;
 
-	private static List<Map<String, String>> mappedRules;
-	private JButton btnLoadFromClipboard;
+	private static AssociationRules associationRules;
 	
-	/** The file chooser for save/open rules and applied filters. */
+	/** The file chooser for save/open rules and apply filters. */
 	private JFileChooser fileChooserSaveOpen = new JFileChooser(new File(System.getProperty("user.dir")));
 	
 	/** The file chooser for export rules. */
@@ -204,8 +194,11 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 	/** HashMap for metric's JSpiner components */
 	private static HashMap<String, JSpinner> metricSpinnerMap = new HashMap<>();
 	
+	/** Apply metric's minimum values to rules */
+	private static JButton btnApplyMetric;
+
 	/** Reset metric's minimum values */
-	private static JButton btnReset;
+	private static JButton btnResetMetric;
 	private JPanel panel;
 	private JLabel lblLogicalOperator;
 	private JLabel lblXy;
@@ -215,7 +208,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 	private JPanel rulesFilterPanel;
 	
 	private static ChangeListener metricChangeListener;
-
+	private JPanel metricButtonsPanel;
 	/**
 	 * Create the postprocess panel.
 	 */
@@ -231,9 +224,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		comboFilterComponent.addKeyListener(new KeyAdapter() {
 			@Override
 			public void keyReleased(KeyEvent e) {
-				if (e.getKeyChar() == KeyEvent.VK_DELETE || e.getKeyChar() == KeyEvent.VK_BACK_SPACE) {
-					comboLogicalOperator.setEnabled(comboFilterComponent.getText().isEmpty() ? false : true);
-				}
+				onComboFilterStateChanged();
 			}
 		});
 		
@@ -271,15 +262,8 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 			}
 		});
 		
-		btnLoadFromClipboard = new JButton("Load from clipboard");
-		btnLoadFromClipboard.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent e) {
-				loadFromClipboard();
-			}
-		});
-		buttonsPanel.add(btnLoadFromClipboard);
-		
 		btnExport = new JButton("Export...");
+		btnExport.setToolTipText("Export the filtered rules in CSV format");
 		buttonsPanel.add(btnExport);
 		btnExport.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
@@ -442,7 +426,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		comboFilter.setEditable(true);
 		comboFilter.addItemListener(new ItemListener() {
 			public void itemStateChanged(ItemEvent e) {
-				comboLogicalOperator.setEnabled(comboFilterComponent.getText().isEmpty() ? false : true);
+				onComboFilterStateChanged();
 			}
 		});
 		
@@ -455,17 +439,9 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		btnApply.setEnabled(false);
 		btnApply.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
-				
-				boolean proceed = true;
-
-		        if (Explorer.m_Memory.memoryIsLow()) {
-		        	proceed = Explorer.m_Memory.showMemoryIsLow();
-		        }
-		        
-		        if (proceed) {
-		        	applyFilter();
+				if (!comboFilterComponent.getText().trim().equals("")) {
+					applyRulesFilter();
 				}
-		        
 			}
 		});
 		
@@ -477,17 +453,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		btnClear.setEnabled(false);
 		btnClear.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
-				
-				boolean proceed = true;
-
-		        if (Explorer.m_Memory.memoryIsLow()) {
-		        	proceed = Explorer.m_Memory.showMemoryIsLow();
-		        }
-		        
-		        if (proceed) {
-		        	clearFilter();
-				}
-		        
+				clearRulesFilter();
 			}
 		});
 		
@@ -497,7 +463,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		GridBagLayout gbl_metricsFilterPanel = new GridBagLayout();
 		gbl_metricsFilterPanel.columnWidths = new int[] {90, 70, 90, 70};
 		gbl_metricsFilterPanel.columnWeights = new double[]{1.0, 0.0, 1.0, 0.0};
-		gbl_metricsFilterPanel.rowWeights = new double[]{1.0, 1.0, 1.0};
+		gbl_metricsFilterPanel.rowWeights = new double[]{1.0, 1.0, 0.0};
 		metricsFilterPanel.setLayout(gbl_metricsFilterPanel);
 		
 		chckbxSupport = new JCheckBox("Support");
@@ -505,7 +471,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		chckbxSupport.setSelected(true);
 		GridBagConstraints gbc_chckbxSupport = new GridBagConstraints();
 		gbc_chckbxSupport.fill = GridBagConstraints.BOTH;
-		gbc_chckbxSupport.insets = new Insets(0, 0, 0, 5);
+		gbc_chckbxSupport.insets = new Insets(0, 0, 5, 5);
 		gbc_chckbxSupport.gridx = 0;
 		gbc_chckbxSupport.gridy = 0;
 		metricsFilterPanel.add(chckbxSupport, gbc_chckbxSupport);
@@ -515,7 +481,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		spinSupport.setEnabled(false);
 		spinSupport.setModel(new SpinnerNumberModel(new Double(0), null, null, new Double(0.01)));
 		GridBagConstraints gbc_spinSupport = new GridBagConstraints();
-		gbc_spinSupport.insets = new Insets(0, 0, 0, 5);
+		gbc_spinSupport.insets = new Insets(0, 0, 5, 5);
 		gbc_spinSupport.fill = GridBagConstraints.HORIZONTAL;
 		gbc_spinSupport.gridx = 1;
 		gbc_spinSupport.gridy = 0;
@@ -527,7 +493,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		chckbxConfidence.setSelected(true);
 		GridBagConstraints gbc_chckbxConfidence = new GridBagConstraints();
 		gbc_chckbxConfidence.fill = GridBagConstraints.BOTH;
-		gbc_chckbxConfidence.insets = new Insets(0, 0, 0, 5);
+		gbc_chckbxConfidence.insets = new Insets(0, 0, 5, 5);
 		gbc_chckbxConfidence.gridx = 0;
 		gbc_chckbxConfidence.gridy = 1;
 		metricsFilterPanel.add(chckbxConfidence, gbc_chckbxConfidence);
@@ -538,7 +504,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		spinConfidence.setModel(new SpinnerNumberModel(new Double(0), null, null, new Double(0.01)));
 		GridBagConstraints gbc_spinConfidence = new GridBagConstraints();
 		gbc_spinConfidence.fill = GridBagConstraints.HORIZONTAL;
-		gbc_spinConfidence.insets = new Insets(0, 0, 0, 5);
+		gbc_spinConfidence.insets = new Insets(0, 0, 5, 5);
 		gbc_spinConfidence.gridx = 1;
 		gbc_spinConfidence.gridy = 1;
 		metricsFilterPanel.add(spinConfidence, gbc_spinConfidence);
@@ -549,7 +515,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		chckbxLift.setSelected(true);
 		GridBagConstraints gbc_chckbxLift = new GridBagConstraints();
 		gbc_chckbxLift.fill = GridBagConstraints.BOTH;
-		gbc_chckbxLift.insets = new Insets(0, 0, 0, 5);
+		gbc_chckbxLift.insets = new Insets(0, 0, 5, 5);
 		gbc_chckbxLift.gridx = 0;
 		gbc_chckbxLift.gridy = 2;
 		metricsFilterPanel.add(chckbxLift, gbc_chckbxLift);
@@ -560,7 +526,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		spinLift.setModel(new SpinnerNumberModel(new Double(0), null, null, new Double(0.01)));
 		GridBagConstraints gbc_spinLift = new GridBagConstraints();
 		gbc_spinLift.fill = GridBagConstraints.HORIZONTAL;
-		gbc_spinLift.insets = new Insets(0, 0, 0, 5);
+		gbc_spinLift.insets = new Insets(0, 0, 5, 5);
 		gbc_spinLift.gridx = 1;
 		gbc_spinLift.gridy = 2;
 		metricsFilterPanel.add(spinLift, gbc_spinLift);
@@ -571,7 +537,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		chckbxLeverage.setSelected(true);
 		GridBagConstraints gbc_chckbxLeverage = new GridBagConstraints();
 		gbc_chckbxLeverage.fill = GridBagConstraints.BOTH;
-		gbc_chckbxLeverage.insets = new Insets(0, 0, 0, 5);
+		gbc_chckbxLeverage.insets = new Insets(0, 0, 5, 5);
 		gbc_chckbxLeverage.gridx = 2;
 		gbc_chckbxLeverage.gridy = 0;
 		metricsFilterPanel.add(chckbxLeverage, gbc_chckbxLeverage);
@@ -581,8 +547,8 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		spinLeverage.setEnabled(false);
 		spinLeverage.setModel(new SpinnerNumberModel(new Double(0), null, null, new Double(0.01)));
 		GridBagConstraints gbc_spinLeverage = new GridBagConstraints();
+		gbc_spinLeverage.insets = new Insets(0, 0, 5, 0);
 		gbc_spinLeverage.fill = GridBagConstraints.HORIZONTAL;
-		gbc_spinLeverage.insets = new Insets(0, 0, 0, 5);
 		gbc_spinLeverage.gridx = 3;
 		gbc_spinLeverage.gridy = 0;
 		metricsFilterPanel.add(spinLeverage, gbc_spinLeverage);
@@ -593,7 +559,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		chckbxConviction.setSelected(true);
 		GridBagConstraints gbc_chckbxConviction = new GridBagConstraints();
 		gbc_chckbxConviction.fill = GridBagConstraints.BOTH;
-		gbc_chckbxConviction.insets = new Insets(0, 0, 0, 5);
+		gbc_chckbxConviction.insets = new Insets(0, 0, 5, 5);
 		gbc_chckbxConviction.gridx = 2;
 		gbc_chckbxConviction.gridy = 1;
 		metricsFilterPanel.add(chckbxConviction, gbc_chckbxConviction);
@@ -603,27 +569,39 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		spinConviction.setEnabled(false);
 		spinConviction.setModel(new SpinnerNumberModel(new Double(0), null, null, new Double(0.01)));
 		GridBagConstraints gbc_spinConviction = new GridBagConstraints();
+		gbc_spinConviction.insets = new Insets(0, 0, 5, 0);
 		gbc_spinConviction.fill = GridBagConstraints.HORIZONTAL;
-		gbc_spinConviction.insets = new Insets(0, 0, 0, 5);
 		gbc_spinConviction.gridx = 3;
 		gbc_spinConviction.gridy = 1;
 		metricsFilterPanel.add(spinConviction, gbc_spinConviction);
 		metricSpinnerMap.put("Conviction", spinConviction);
 		
-		btnReset = new JButton("Reset values");
-		btnReset.setEnabled(false);
-		btnReset.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent arg0) {
-				resetMinMetricValues();
+		metricButtonsPanel = new JPanel();
+		GridBagConstraints gbc_metricButtonsPanel = new GridBagConstraints();
+		gbc_metricButtonsPanel.fill = GridBagConstraints.HORIZONTAL;
+		gbc_metricButtonsPanel.gridwidth = 2;
+		gbc_metricButtonsPanel.gridx = 2;
+		gbc_metricButtonsPanel.gridy = 2;
+		metricsFilterPanel.add(metricButtonsPanel, gbc_metricButtonsPanel);
+		metricButtonsPanel.setLayout(new GridLayout(1, 2, 5, 0));
+		
+		btnApplyMetric = new JButton("Apply");
+		btnApplyMetric.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				applyMetricsFilter();
 			}
 		});
-		GridBagConstraints gbc_btnReset = new GridBagConstraints();
-		gbc_btnReset.fill = GridBagConstraints.HORIZONTAL;
-		gbc_btnReset.gridwidth = 2;
-		gbc_btnReset.insets = new Insets(0, 0, 0, 5);
-		gbc_btnReset.gridx = 2;
-		gbc_btnReset.gridy = 2;
-		metricsFilterPanel.add(btnReset, gbc_btnReset);
+		btnApplyMetric.setEnabled(false);
+		metricButtonsPanel.add(btnApplyMetric);
+		
+		btnResetMetric = new JButton("Reset");
+		metricButtonsPanel.add(btnResetMetric);
+		btnResetMetric.setEnabled(false);
+		btnResetMetric.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				resetMetricsFilter();
+			}
+		});
 		
 		tablePanel = new JPanel();
 		rulesPanel.add(tablePanel, BorderLayout.CENTER);
@@ -661,13 +639,11 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		 * at associate tab. It's the only way i've found to do that.
 		 * Probabily is not the better way.
 		 */
-		table.addPropertyChangeListener(new PropertyChangeListener() {
+		table.addPropertyChangeListener("model", new PropertyChangeListener() {
 			
 			@Override
 			public void propertyChange(PropertyChangeEvent e) {
-				if (e.getPropertyName().equals("model")) {
-					selectTab();
-				}
+				selectTab();
 			}
 			
 		});
@@ -675,190 +651,122 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		scrollPaneTable.setViewportView(table);
 
 	}
+	
+	private void onComboFilterStateChanged() {
 
-	private void clearFilter() {
-
-		if (thread == null) {
-			Utils.setContainerEnabled(rulesFilterPanel, false);
-			Utils.setContainerEnabled(metricsFilterPanel, false);
-			thread = new Thread() {
-				@Override
-				public void run() {
-					getExplorer().m_LogPanel.taskStarted();
-					log.statusMessage("Clearing filter...");
-					comboFilter.setSelectedIndex(-1);
-					comboFilterComponent.setText("");
-					sorter.setRowFilter(null);
-					lblFilteredRulesValue.setText(String.valueOf(table.getRowCount()));
-					comboLogicalOperator.setEnabled(false);
-					log.statusMessage("Clearing filter... DONE!");
-					getExplorer().m_LogPanel.taskFinished();
-					Utils.setContainerEnabled(rulesFilterPanel, true);
-					Utils.setContainerEnabled(metricsFilterPanel, true);
-					thread = null;
-				}
-			};
-			thread.setPriority(Thread.MIN_PRIORITY);
-			thread.start();
-		}
+		boolean isEmpty = comboFilterComponent.getText().isEmpty();
+		comboLogicalOperator.setEnabled(!isEmpty);
+		btnApply.setEnabled(!isEmpty);
 		
 	}
 
-	private void applyFilter() {
-		
-		if (thread == null) {
-			Utils.setContainerEnabled(rulesFilterPanel, false);
-			Utils.setContainerEnabled(metricsFilterPanel, false);
-			thread = new Thread() {
-				@Override
-				public void run() {
-					try {
-						getExplorer().m_LogPanel.taskStarted();
-						log.statusMessage("Applying filter...");
-						String filter = comboFilterComponent.getText().trim();
-						if (filter.length() == 0) {
-							sorter.setRowFilter(null);
-						} else {
-							Pattern p = Pattern.compile("(X|Y)\\[.+\\]");
-							Matcher m = p.matcher(filter);
-							if (m.find()) {
-								sorter.setRowFilter(buildRulesFilter(filter));
-							} else {
-								sorter.setRowFilter(RowFilter.regexFilter(filter, 0, 1));
-							}
-							comboFilter.addItem(filter);
-							comboFilter.setSelectedIndex(0);
-							lblFilteredRulesValue.setText(String.valueOf(table.getRowCount()));
-							comboTableColumn.setSelectedIndex(0);
-							comboComparisonType.setSelectedIndex(0);
-							comboAttribute.setSelectedIndex(0);
-							comboLabel.setSelectedIndex(0);
-						}
-						log.statusMessage("Applying filter... DONE!");
-					} catch (Exception e) {
-						log.statusMessage("Applying filter... FAILED! See log.");
-						log.logMessage(e.getMessage());
-					}
-					thread = null;
-					getExplorer().m_LogPanel.taskFinished();
-					Utils.setContainerEnabled(rulesFilterPanel, true);
-					Utils.setContainerEnabled(metricsFilterPanel, true);
-				}
-			};
-			thread.setPriority(Thread.MIN_PRIORITY);
-			thread.start();
-		}
-		
-	}
-
-	@SuppressWarnings("unchecked")
 	private static void onMetricValueChange() {
-
-		/* Lists for filters */
-		List<RowFilter<Object, Object>> filters = new ArrayList<RowFilter<Object, Object>>();
 		
-		/* Rule's filter */
-		RowFilter<Object, Object> rulesFilter = (RowFilter<Object, Object>) buildRulesFilter(comboFilterComponent.getText().trim());
-		if (rulesFilter != null) {
-			filters.add(rulesFilter);
-		}
-		
-		/* Filter for metrics */
-		RowFilter<Object, Object> metricsFilter = (RowFilter<Object, Object>) buildMetricsFilter();
-		filters.add(metricsFilter);
-		
-		/* Join rule and metric filters */
-		RowFilter<Object, Object> andFilter = RowFilter.andFilter(filters);
-		
-		/* Apply filter to table */
-		sorter.setRowFilter(andFilter);
-		
-		/* Update counting of filtered values */
-		lblFilteredRulesValue.setText(String.valueOf(table.getRowCount()));
+		btnApplyMetric.setEnabled(true);
+		btnResetMetric.setEnabled(true);
 		
 	}
 
-	private static RowFilter<? super TableModel, ? super Integer> buildMetricsFilter() {
-
-		RowFilter<Object, Object> rowFilter = RowFilter.regexFilter(".*");
-		List<RowFilter<Object, Object>> metricFilters = new ArrayList<RowFilter<Object, Object>>();
-		List<RowFilter<Object, Object>> metricFilter;
-		RowFilter<Object, Object> filterEqual;
-		RowFilter<Object, Object> filterAfter;
-		double value;
-		int columnIndex;
-		
-		for (Map.Entry<String, JSpinner> entry : metricSpinnerMap.entrySet()) {
-			metricFilter = new ArrayList<RowFilter<Object, Object>>();
-			value = (double) (entry.getValue()).getValue();
-			columnIndex = table.getColumnModel().getColumnIndex(entry.getKey());
-			filterEqual = RowFilter.numberFilter(ComparisonType.EQUAL, value, table.convertColumnIndexToModel(columnIndex));
-			filterAfter = RowFilter.numberFilter(ComparisonType.AFTER, value, table.convertColumnIndexToModel(columnIndex));
-			metricFilter.add(filterEqual);
-			metricFilter.add(filterAfter);
-			metricFilters.add(RowFilter.orFilter(metricFilter));
-		}
-		
-		rowFilter = RowFilter.andFilter(metricFilters);
-		
-		return rowFilter;
-		
-	}
-
-	private static void onMetricVisibilityChange(ActionEvent e) {
-
-		JCheckBox chckbx = (JCheckBox) e.getSource();
-		String metricName = chckbx.getText();
-		MetricSpinner spinner = (MetricSpinner) metricSpinnerMap.get(metricName);
-		RulesTableColumnModel columnModel = (RulesTableColumnModel) table.getColumnModel();
-		
-		if (spinner != null) {
-			spinner.setEnabled(chckbx.isSelected());
-			spinner.reset();
-		}
-		if (chckbx.isSelected()) {
-			columnModel.showColumn(metricName);
-			if (!sorter.getSortKeys().isEmpty()) {
-				int keyColumn = sorter.getSortKeys().get(0).getColumn();
-				if (keyColumn < columnModel.getColumnCount()) {
-					if (!table.getColumnName(keyColumn).equals(metricName)) {
-						int columnIndex = columnModel.getColumnIndex(metricName);
-						columnModel.getColumn(columnIndex).setCellRenderer(new DecimalFormatCellRenderer());
-					}
-				}
-			}
-		} else {
-			columnModel.hideColumn(metricName);
-		}
-		
-	}
-
-	/**
-	 * Reset metrics to their minimum values
-	 */
-	private void resetMinMetricValues() {
-		
-		for (Map.Entry<String, JSpinner> entry : metricSpinnerMap.entrySet()) {
-			((MetricSpinner) entry.getValue()).reset();
-		}
-		
-	}
-
-	private void exportToCsv() {
+	// TODO: Getting thread busy message when selecting/deselecting a metric
+	private static void onMetricVisibilityChange(final ActionEvent e) {
 	
 		if (thread == null) {
 			thread = new Thread() {
 				@Override
 				public void run() {
-					String csvData = "";
+					
+					if (log instanceof TaskLogger) {
+		            	((TaskLogger) log).taskStarted();
+		            }
+					
+					JCheckBox chckbx = (JCheckBox) e.getSource();
+					String metricName = chckbx.getText();
+					MetricSpinner spinner = (MetricSpinner) metricSpinnerMap.get(metricName);
+					RulesTableColumnModel columnModel = (RulesTableColumnModel) table.getColumnModel();
+					
+					if (spinner != null) {
+						spinner.setEnabled(chckbx.isSelected());
+						spinner.reset();
+					}
+					
+					String message = "";
+					
+					if (chckbx.isSelected()) {
+						message = "Enabling column... ";
+						log.statusMessage(message);
+						columnModel.showColumn(metricName);
+						if (!sorter.getSortKeys().isEmpty()) {
+							int keyColumn = sorter.getSortKeys().get(0).getColumn();
+							if (keyColumn < columnModel.getColumnCount()) {
+								if (!table.getColumnName(keyColumn).equals(metricName)) {
+									int columnIndex = columnModel.getColumnIndex(metricName);
+									columnModel.getColumn(columnIndex).setCellRenderer(new DecimalFormatCellRenderer());
+								}
+							}
+						}
+					} else {
+						message = "Disabling column...";
+						log.statusMessage(message);
+						columnModel.hideColumn(metricName);
+					}
+					
+					applyFilter();
+					
+					thread = null;
+					log.statusMessage(message + " DONE!");
+					if (log instanceof TaskLogger) {
+		            	((TaskLogger) log).taskFinished();
+		            }
+					btnApplyMetric.setEnabled(false);
+					btnResetMetric.setEnabled(false);
+					
+				}
+				
+			};
+			thread.setPriority(Thread.MIN_PRIORITY);
+			thread.start();
+		} else {
+			JOptionPane.showMessageDialog(null, THREAD_BUSY_MESSAGE, THREAD_BUSY_TITLE, JOptionPane.WARNING_MESSAGE);
+		}
+		
+	}
+
+	private static void onMetricPropertyChange(PropertyChangeEvent e) {
+	
+		JCheckBox chkbx = (JCheckBox) e.getSource();
+		MetricSpinner spinner = (MetricSpinner) metricSpinnerMap.get(chkbx.getText());
+		if (chkbx.isSelected()) {
+			spinner.setEnabled(chkbx.isEnabled());
+		} else {
+			spinner.setEnabled(false);
+		}
+		
+	}
+
+	private void exportToCsv() {
+		
+		if (thread == null) {
+			thread = new Thread() {
+				@Override
+				public void run() {
+					
 					int option = fileChooserExport.showSaveDialog(rulesPanel);
 					if (option == JFileChooser.APPROVE_OPTION) {
-						getExplorer().m_LogPanel.taskStarted();
-						getExplorer().m_LogPanel.statusMessage("Exporting rules...");
+
+						if (log instanceof TaskLogger) {
+    		            	((TaskLogger) log).taskStarted();
+    		            }
+						
+						log.statusMessage("Exporting rules...");
+						
+						StringBuilder csvData = new StringBuilder();
+						
+						/* Choose file */
 						File file = fileChooserExport.getSelectedFile();
-						String fileName = file.getName();
-						if (!fileName.endsWith(".csv")) {
-							fileName += ".csv";
+						String filePath = file.getPath();
+						if (!filePath.toLowerCase().endsWith(".csv")) {
+							filePath += ".csv";
+							file = new File(filePath);
 						}
 						
 						List<String> visibleColumns = new ArrayList<>();
@@ -866,54 +774,58 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 						int columnCount = tableModel.getColumnCount();
 						int modelRowCount = tableModel.getRowCount();
 						int tableRowCount = table.getRowCount();
+						int currentRow;
+						TableColumn tableColumn;
+						String columnName;
 						
+						/* Column names */
 						Enumeration<TableColumn> columns = table.getColumnModel().getColumns();
 						while (columns.hasMoreElements()) {
-							TableColumn tableColumn = (TableColumn) columns.nextElement();
-							visibleColumns.add(tableColumn.getHeaderValue().toString());
+							tableColumn = (TableColumn) columns.nextElement();
+							columnName = tableColumn.getHeaderValue().toString();
+							csvData.append("\"" + columnName + "\"");
+							csvData.append(columns.hasMoreElements() ? "," : "");
+							visibleColumns.add(columnName);
+						}
+						csvData.append("\r\n");
+						
+						/* Rules data */
+						for (int row = 0; row < tableRowCount; row++) {
+							for (int col = 0; col < columnCount; col++) {
+								columnName = tableModel.getColumnName(col);
+								if (visibleColumns.contains(columnName)) {
+									currentRow = row;
+									if (tableRowCount < modelRowCount) {
+										currentRow = table.convertColumnIndexToModel(row);
+									}
+									csvData.append("\"" + tableModel.getValueAt(currentRow, col) + "\"");
+								}
+								csvData.append(col + 1 < columnCount ? "," : "");
+							}
+							csvData.append("\r\n");
 						}
 						
-						for (int i = 0; i < columnCount; i++) {
-							csvData += i > 0 ? "," : "";
-							String columnName = tableModel.getColumnName(i);
-							if (visibleColumns.contains(columnName)) {
-								csvData += "\"" + columnName + "\"";
-							}
-							if (csvData.endsWith(",")) {
-								csvData = csvData.substring(0, csvData.length() - 1);
-							}
-						}
-						csvData += "\r\n";
-						for (int i = 0; i < tableRowCount; i++) {
-							for (int j = 0; j < columnCount; j++) {
-								csvData += j > 0 ? "," : "";
-								String columnName = tableModel.getColumnName(j);
-								if (visibleColumns.contains(columnName)) {
-									if (tableRowCount < modelRowCount) {
-										csvData += "\"" + tableModel.getValueAt(table.convertColumnIndexToModel(i), j) + "\"";
-									} else {
-										csvData += "\"" + tableModel.getValueAt(i, j) + "\"";
-									}
-								}
-								if (csvData.endsWith(",")) {
-									csvData = csvData.substring(0, csvData.length() - 1);
-								}
-							}
-							csvData += "\r\n";
-						}
+						/* Write to file */
+						// TODO: Write each row to file instead write all data once
 						try {
 							FileWriter w = new FileWriter(file);
-							w.write(csvData);
+							w.write(csvData.toString());
 							w.flush();
 							w.close();
-							getExplorer().m_LogPanel.statusMessage("Exporting rules... done!");
+							log.statusMessage("Exporting rules... DONE!");
 						} catch (IOException e) {
-							getExplorer().m_LogPanel.statusMessage("Exporting rules... failed! See log.");
-							getExplorer().m_LogPanel.logMessage("Exporting rules... " + e.getMessage());
+							log.statusMessage("Exporting rules... FAILED! See log.");
+							log.logMessage(e.getMessage());
 						}
+						
 					}
+					
 					thread = null;
-					getExplorer().m_LogPanel.taskFinished();
+					
+					if (log instanceof TaskLogger) {
+		            	((TaskLogger) log).taskFinished();
+		            }
+					
 				}
 			};
 			thread.setPriority(Thread.MIN_PRIORITY);
@@ -933,24 +845,36 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 				public void run() {
 					int option = fileChooserSaveOpen.showOpenDialog(rulesPanel);
 					if (option == JFileChooser.APPROVE_OPTION) {
-						getExplorer().m_LogPanel.taskStarted();
-						getExplorer().m_LogPanel.statusMessage("Opening rules...");
+
+						if (log instanceof TaskLogger) {
+    		            	((TaskLogger) log).taskStarted();
+    		            }
+						
+						// TODO: Add message to inform when reading file
+						log.statusMessage("Loading rules...");
+						
 						File file = fileChooserSaveOpen.getSelectedFile();
 						try {
 							FileInputStream fis = new FileInputStream(file);
 							ObjectInputStream ois = new ObjectInputStream(fis);	
-							mappedRules = (List<Map<String, String>>) ois.readObject();
-							loadRules(mappedRules);
+							associationRules = (AssociationRules) ois.readObject();
+							loadRules();
 							comboFilter.setModel((ComboBoxModel<Object>) ois.readObject());
 							ois.close();
-							getExplorer().m_LogPanel.statusMessage("Opening rules... done!");
+							log.statusMessage("Loading rules... DONE!");
 						} catch (IOException | ClassNotFoundException e) {
-							getExplorer().m_LogPanel.statusMessage("Opening rules... failed! See log.");
-							getExplorer().m_LogPanel.logMessage("Opening rules... " + e.getMessage());
+							log.statusMessage("Loading rules... FAILED! See log.");
+							log.logMessage(e.getMessage());
 						}
+						
 					}
+					
 					thread = null;
-					getExplorer().m_LogPanel.taskFinished();
+
+					if (log instanceof TaskLogger) {
+		            	((TaskLogger) log).taskFinished();
+		            }
+					
 				}
 			};
 			thread.setPriority(Thread.MIN_PRIORITY);
@@ -969,14 +893,19 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 				public void run() {
 					int option = fileChooserSaveOpen.showSaveDialog(rulesPanel);
 					if (option == JFileChooser.APPROVE_OPTION) {
-						getExplorer().m_LogPanel.taskStarted();
-						getExplorer().m_LogPanel.statusMessage("Saving rules...");
+
+						if (log instanceof TaskLogger) {
+    		            	((TaskLogger) log).taskStarted();
+    		            }
+						
+						log.statusMessage("Saving rules...");
+						
 						File file = fileChooserSaveOpen.getSelectedFile();
 						try {
 											
 							FileOutputStream fos = new FileOutputStream(file);
 							ObjectOutputStream oos = new ObjectOutputStream(fos);
-							oos.writeObject(mappedRules);
+							oos.writeObject(associationRules);
 							oos.writeObject(comboFilter.getModel());
 							
 							/* Need to be reinitialized to prevent unexpected behavior from
@@ -986,15 +915,21 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 							
 							oos.close();
 							
-							getExplorer().m_LogPanel.statusMessage("Saving rules... done!");
+							log.statusMessage("Saving rules... DONE!");
 							
 						} catch (Exception e) {
-							getExplorer().m_LogPanel.statusMessage("Saving rules... failed!See log.");
-							getExplorer().m_LogPanel.logMessage("Saving rules... " + e.getMessage());
+							log.statusMessage("Saving rules... FAILED! See log.");
+							log.logMessage(e.getMessage());
 						}
+						
 					}
+					
 					thread = null;
-					getExplorer().m_LogPanel.taskFinished();
+					
+					if (log instanceof TaskLogger) {
+		            	((TaskLogger) log).taskFinished();
+		            }
+					
 				}
 			};
 			thread.setPriority(Thread.MIN_PRIORITY);
@@ -1004,17 +939,102 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		}
 		
 	}
+	
+	/**
+	 * Select this tab. Used by visualization
+	 * menu item in associate tab.
+	 */
+	private void selectTab() {
+		
+		getExplorer().getTabbedPane().setSelectedComponent(this);
+		
+	}
+
+	/**
+	 * Initializes filter parameters for metrics.
+	 */
+	private static void initMetrics() {
+		
+		metricChangeListener = new ChangeListener() {
+			public void stateChanged(ChangeEvent e) {
+				onMetricValueChange();
+			}
+		};
+		
+		for (Map.Entry<String, JSpinner> entry : metricSpinnerMap.entrySet()) {
+			
+			JSpinner spinner = (entry.getValue());
+			
+			/* Maximum and minimum values for metrics */
+			
+			SpinnerNumberModel spinModel = (SpinnerNumberModel) spinner.getModel();
+			int colIndex = table.getColumnModel().getColumnIndex(entry.getKey());
+			double spinModelMax = Utils.getColumnMaxValue(table, colIndex);
+			double spinModelMin = Utils.getColumnMinValue(table, colIndex);
+			spinModel.setMaximum(spinModelMax);
+			spinModel.setMinimum(spinModelMin);
+			spinModel.setValue(spinModelMin);
+	
+			/* Set listeners for spinners to filter minimum metric values */
+			
+			spinner.addChangeListener(metricChangeListener);
+			
+		}
+		
+		for (Component c : metricsFilterPanel.getComponents()) {
+			
+			if (c instanceof JCheckBox) {
+				
+				/* Listen to JCheckBox checked status and show/hide columns */
+				((JCheckBox) c).addActionListener(new ActionListener() {
+					@Override
+					public void actionPerformed(ActionEvent e) {
+						onMetricVisibilityChange(e);
+					}
+				});
+				
+				/* Listen to JCheckBox enabled property and
+				 * change respective JSpinner enabled property
+				 */
+				((JCheckBox) c).addPropertyChangeListener("enabled", new PropertyChangeListener() {
+					@Override
+					public void propertyChange(PropertyChangeEvent e) {
+						onMetricPropertyChange(e);
+					}
+				});
+				
+			}
+			
+		}
+	
+		
+	}
 
 	private void addFilter() {
-
-		Pattern p;
-	    Matcher m = null;
+		
 		String column = ((ComboBoxItem) comboTableColumn.getSelectedItem()).getValue();
 		String comparisonOperator = (String) comboComparisonType.getSelectedItem();
 		String logicalOperator = (String) comboLogicalOperator.getSelectedItem();
 		String attribute = comboAttribute.getSelectedItem().toString();
-		String value = (String) comboLabel.getSelectedItem();
+		String label = (String) comboLabel.getSelectedItem();
+		
+		addFilter(column, comparisonOperator, logicalOperator, attribute, label);
+		
+	}
+
+	/**
+	 * @param column
+	 * @param comparisonOperator
+	 * @param logicalOperator
+	 * @param attribute
+	 * @param label
+	 */
+	private void addFilter(String column, String comparisonOperator, String logicalOperator, String attribute, String label) {
+
+		Pattern p;
+	    Matcher m = null;
 		String componentText = comboFilterComponent.getText();
+		String allLabels = "";
 		String filter = "";
 		boolean found = false;
 		
@@ -1033,15 +1053,17 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		}
 	    filter += found && logicalOperator.equals("AND") ? "|" : "";
 		filter += attribute;
-		filter += (!value.equals("All")) ? "=" + value : "";
-		if (value.equals("All") && comparisonOperator.equals("EQUALS")) {
-			filter += "=(";
+		filter += (!label.equals("All")) ? "=" + label : "";
+		if (label.equals("All") && comparisonOperator.equals("EQUALS")) {
+			allLabels = "";
+			allLabels += "=(";
 			int size = comboLabel.getModel().getSize();
 			for (int i = 1; i < size; i++) {
-				filter += comboLabel.getItemAt(i);
-				filter += (i + 1) < size ? "|" : "";
+				allLabels += comboLabel.getItemAt(i);
+				allLabels += (i + 1) < size ? "|" : "";
 			}
-			filter += ")";
+			allLabels += ")";
+			filter += allLabels;
 		}
 		filter += found && logicalOperator.equals("AND") ? "( |)" : "";
 		if (found && logicalOperator.equals("AND")) {
@@ -1049,16 +1071,24 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 			int start = componentText.indexOf("^", lastIndex);
 			int end = componentText.indexOf("$", lastIndex);
 			String content = componentText.substring(start+1, end);
-			content = content.replaceAll("\\{(.*?)\\}", "");
-			String[] splitContent = content.split("\\( \\|\\)\\|");
-			if (splitContent.length > 1) {
-				content = new StringBuilder(content).insert(content.length() - 1, filter).toString();
-				content = new StringBuilder(content).insert(content.length(), "{"+(splitContent.length+1)+"}").toString();
+			boolean contains = false;
+			if (label.equals("All")) {
+				contains = content.contains(attribute + allLabels);
 			} else {
-				content = "(" + content + "( |)";
-				content += filter + "){2}";
+				contains = content.contains(attribute + "=" + label);
 			}
-			comboFilterComponent.setText(new StringBuilder(componentText).replace(start+1, end, content).toString());
+			if (!contains) {
+				content = content.replaceAll("\\{(.*?)\\}", "");
+				String[] splitContent = content.split("\\( \\|\\)\\|");
+				if (splitContent.length > 1) {
+					content = new StringBuilder(content).insert(content.length() - 1, filter).toString();
+					content = new StringBuilder(content).insert(content.length(), "{"+(splitContent.length+1)+"}").toString();
+				} else {
+					content = "(" + content + "( |)";
+					content += filter + "){2}";
+				}
+				comboFilterComponent.setText(new StringBuilder(componentText).replace(start+1, end, content).toString());
+			}
 		} else {
 			
 			filter += comparisonOperator.equals("EQUALS") ? "$]" : "]";
@@ -1091,9 +1121,44 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 			}
 		
 			comboLogicalOperator.setEnabled(true);
+			btnApply.setEnabled(true);
+			btnClear.setEnabled(true);
+			
 		}
 		
 	}
+
+	private static RowFilter<? super TableModel, ? super Integer> buildMetricsFilter() {
+			
+			RowFilter<Object, Object> rowFilter = RowFilter.regexFilter(".*");
+			List<RowFilter<Object, Object>> metricFilters = new ArrayList<RowFilter<Object, Object>>();
+			List<RowFilter<Object, Object>> metricFilter;
+			RowFilter<Object, Object> filterEqual;
+			RowFilter<Object, Object> filterAfter;
+			RulesTableColumnModel columnModel = (RulesTableColumnModel) table.getColumnModel();
+			String key;
+			double value;
+			int columnIndex;
+			
+			for (Map.Entry<String, JSpinner> entry : metricSpinnerMap.entrySet()) {
+				metricFilter = new ArrayList<RowFilter<Object, Object>>();
+				key = entry.getKey();
+				value = (double) (entry.getValue()).getValue();
+				if (columnModel.hasColumn(key)) {
+					columnIndex = table.getColumnModel().getColumnIndex(key);
+					filterEqual = RowFilter.numberFilter(ComparisonType.EQUAL, value, table.convertColumnIndexToModel(columnIndex));
+					filterAfter = RowFilter.numberFilter(ComparisonType.AFTER, value, table.convertColumnIndexToModel(columnIndex));
+					metricFilter.add(filterEqual);
+					metricFilter.add(filterAfter);
+					metricFilters.add(RowFilter.orFilter(metricFilter));
+				}
+			}
+			
+			rowFilter = RowFilter.andFilter(metricFilters);
+			
+			return rowFilter;
+			
+		}
 
 	/**
 	 * Builds RowFilter joining each filter from list.
@@ -1105,69 +1170,90 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 	private static RowFilter<? super TableModel, ? super Integer> buildRulesFilter(String filter) {
 
 		RowFilter<Object, Object> rowFilter = RowFilter.regexFilter(".*");
-		List<RowFilter<Object, Object>> filters = new ArrayList<>();
-		List<String> operators = new ArrayList<>();
 		
-		/* The filter has similar form of an association rule. The symbol
-		 * between LHS and RHS means an "AND" operator.
-		 */
-		filter = filter.replace(" ==> ", " AND ");
+		/* Remove empty spaces */
+		filter = filter.trim();
 		
-		/* Adds parentheses to prevent parsing errors */
-		filter = "(" + filter + ")";
-		
-		/* Initalize list of filters used by parser */
-		parseFilterList = new ArrayList<>();
-		
-		/* Parses content to filter */
-		filterParser(filter, 0, false, 0);
-		
-		for (String f : parseFilterList) {
+		/* Once there is an empty string, the filter will removed. */
+		if (filter.length() == 0) {
 			
-			String[] splitOr = f.split(" OR ");
-			List<RowFilter<Object, Object>> filterList = new ArrayList<>();
-			for (String itemOr : splitOr) {
-				if (!itemOr.equals("")) {
-					String[] splitAnd = itemOr.split(" AND ");
-					if (splitAnd.length > 1) {
-						List<RowFilter<Object, Object>> andFilters = new ArrayList<>();
-						for (String itemAnd : splitAnd) {
-							if (!itemAnd.equals("")) {
-								andFilters.add(filterItemParser(itemAnd));
+			rowFilter = null;
+		
+		/* If pattern has not found, no treatment will be applied. */
+		} else if (!Pattern.compile("(X|Y)\\[.+\\]").matcher(filter).find()) {
+			
+			rowFilter = RowFilter.regexFilter(filter, 0, 1);
+		
+		/* Otherwise... */
+		} else {
+			
+			List<RowFilter<Object, Object>> filters = new ArrayList<>();
+			List<String> operators = new ArrayList<>();
+			
+			/* The filter has similar form of an association rule. The symbol
+			 * between LHS and RHS means an "AND" operator.
+			 */
+			filter = filter.replace(" ==> ", " AND ");
+			
+			/* Adds parentheses to prevent parsing errors */
+			filter = "(" + filter + ")";
+			
+			/* Initalize list of filters used by parser */
+			parseFilterList = new ArrayList<>();
+			
+			/* Parses content to filter */
+			filterParser(filter, 0, false, 0);
+			
+			for (String f : parseFilterList) {
+				
+				String[] splitOr = f.split(" OR ");
+				List<RowFilter<Object, Object>> filterList = new ArrayList<>();
+				
+				for (String itemOr : splitOr) {
+					if (!itemOr.equals("")) {
+						String[] splitAnd = itemOr.split(" AND ");
+						if (splitAnd.length > 1) {
+							List<RowFilter<Object, Object>> andFilters = new ArrayList<>();
+							for (String itemAnd : splitAnd) {
+								if (!itemAnd.equals("")) {
+									andFilters.add(filterItemParser(itemAnd));
+								}
 							}
+							filterList.add(RowFilter.andFilter(andFilters));
+						} else if (splitAnd.length == 1) {
+							filterList.add(filterItemParser(itemOr));
 						}
-						filterList.add(RowFilter.andFilter(andFilters));
-					} else if (splitAnd.length == 1) {
-						filterList.add(filterItemParser(itemOr));
 					}
 				}
-			}
-			if (splitOr.length > 1) {
-				rowFilter = RowFilter.orFilter(filterList);
-			} else if (splitOr.length == 1 && !f.trim().equals("AND")) {
-				rowFilter = RowFilter.andFilter(filterList);
-			} else {
-				operators.add(f.trim());
-				filters.add(rowFilter);
-				rowFilter = RowFilter.regexFilter(".*");
+				
+				if (splitOr.length > 1) {
+					rowFilter = RowFilter.orFilter(filterList);
+				} else if (splitOr.length == 1 && !f.trim().equals("AND")) {
+					rowFilter = RowFilter.andFilter(filterList);
+				} else {
+					operators.add(f.trim());
+					filters.add(rowFilter);
+					rowFilter = RowFilter.regexFilter(".*");
+				}
+				
 			}
 			
-		}
-		
-		if (operators.size() > 0) {
-			filters.add(rowFilter);
-			List<RowFilter<Object, Object>> tempList = new ArrayList<>();
-			tempList.add(filters.get(0));
-			for (int i = 0; i < operators.size(); i++) {
-				tempList.add(filters.get(i+1));
-				if (operators.get(i).equals("AND")) {
-					rowFilter = RowFilter.andFilter(tempList);
-				} else if (operators.get(i).equals("OR")) {
-					rowFilter = RowFilter.orFilter(tempList);
+			if (operators.size() > 0) {
+				filters.add(rowFilter);
+				List<RowFilter<Object, Object>> tempList = new ArrayList<>();
+				tempList.add(filters.get(0));
+				for (int i = 0; i < operators.size(); i++) {
+					tempList.add(filters.get(i+1));
+					if (operators.get(i).equals("AND")) {
+						rowFilter = RowFilter.andFilter(tempList);
+					} else if (operators.get(i).equals("OR")) {
+						rowFilter = RowFilter.orFilter(tempList);
+					}
+					tempList = new ArrayList<>();
+					tempList.add(rowFilter);
 				}
-				tempList = new ArrayList<>();
-				tempList.add(rowFilter);
 			}
+			
 		}
 		
 		return rowFilter;
@@ -1214,7 +1300,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 						quote = currentTemp;
 					}
 
-					/* The filter end delimiter must be outer from quotation
+					/* The filter end delimiter must be out from quotation
 					 * and is not an escaped string. */
 					if (currentTemp.equals("]")
 						&& !s.substring(pos-2, pos).equals("\\]")
@@ -1300,200 +1386,202 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		
 	}
 
-	/**
-	 * Select this tab. Used by visualization
-	 * menu item in associate tab.
-	 */
-	private void selectTab() {
-		
-		getExplorer().getTabbedPane().setSelectedComponent(this);
-		
-	}
-	
-	/**
-	 * Initializes filter parameters for metrics.
-	 */
-	private static void initMetrics() {
-		
-		metricChangeListener = new ChangeListener() {
-			public void stateChanged(ChangeEvent e) {
-				onMetricValueChange();
-			}
-		};
-		
-		for (Map.Entry<String, JSpinner> entry : metricSpinnerMap.entrySet()) {
+	private void applyRulesFilter() {
 			
-			JSpinner spinner = (entry.getValue());
-			
-			/* Maximum and minimum values for metrics */
-			
-			SpinnerNumberModel spinModel = (SpinnerNumberModel) spinner.getModel();
-			int colIndex = table.getColumnModel().getColumnIndex(entry.getKey());
-			double spinModelMax = Utils.getColumnMaxValue(table, colIndex);
-			double spinModelMin = Utils.getColumnMinValue(table, colIndex);
-			spinModel.setMaximum(spinModelMax);
-			spinModel.setMinimum(spinModelMin);
-			spinModel.setValue(spinModelMin);
-
-			/* Set listeners for spinners to filter minimum metric values */
-			
-			spinner.addChangeListener(metricChangeListener);
-			
-		}
+			boolean proceed = true;
 		
-		for (Component c : metricsFilterPanel.getComponents()) {
-			if (c instanceof JCheckBox) {
-				((JCheckBox) c).addActionListener(new ActionListener() {
-					@Override
-					public void actionPerformed(ActionEvent e) {
-						onMetricVisibilityChange(e);
-					}
-				});
-			}
-		}
-
-		
-	}
-	
-	/**
-	 * Loads rules from clipboard
-	 */
-	private void loadFromClipboard() {
-		
-		boolean proceed = true;
-
-        if (Explorer.m_Memory.memoryIsLow()) {
-        	proceed = Explorer.m_Memory.showMemoryIsLow();
-        }
-		
-		if (table.getRowCount() > 0) {
-			int response = JOptionPane.showConfirmDialog(
-					null
-					, "A set rules is already loaded. Do you want to continue?"
-					, "Warning"
-					, JOptionPane.YES_NO_OPTION
-					, JOptionPane.QUESTION_MESSAGE);
-			if (response == JOptionPane.NO_OPTION) {
-				proceed = false;
-			}
-		}
-        
-        if (proceed) {
-    		if (thread == null) {
-				Utils.setContainerEnabled(rulesPanel, false);
-    			thread = new Thread() {
-    				@Override
-    				public void run() {
-    					
-						getExplorer().m_LogPanel.taskStarted();
-    					log.statusMessage("Loading rules...");
-	
-						Toolkit toolkit = Toolkit.getDefaultToolkit();
-						Clipboard clipboard = toolkit.getSystemClipboard();
-						try {
-							List<Map<String, String>> rulesList = new ArrayList<>();
-							Map<String, String> rule;
-							String result = (String) clipboard.getData(DataFlavor.stringFlavor);
-							Pattern rulePattern = Pattern.compile("(\\d+).\\s+(.+)\\s+(\\d+)\\s+==>\\s+(.+)\\s+(\\d+)\\s+(.*)");
-							Pattern transactionPattern = Pattern.compile("Instances:\\s+(\\d+)");
-							Matcher m;
-							String nTransactions = "";
-							String line;
-							Scanner scanner = new Scanner(result);
-							while (scanner.hasNextLine()) {
-								line = (String) scanner.nextLine();
-								m = transactionPattern.matcher(line);
-								if (m.find()) {
-									nTransactions = m.group(1);
-								}
-								m = rulePattern.matcher(line);
-								if (m.find()) {
-									
-									rule = new LinkedHashMap<String, String>();
-									
-									/* Antecedent */
-									String antecedent = m.group(2);
-									
-									/* Consequent */
-									String consequent = m.group(4);
-									
-									/* Support */
-									String supportX = m.group(3);
-									double s = Double.parseDouble(supportX);
-									double t = Double.parseDouble(nTransactions);
-									double support = weka.core.Utils.roundDouble((s / t), 2);
-									
-									rule.put("Antecedent (X)", antecedent.trim());
-									rule.put("Consequent (Y)", consequent.trim());
-									rule.put("Support", weka.core.Utils.doubleToString(support, 2));
-									
-									/* Metrics */
-									String metrics = m.group(6);
-									String[] splitMetrics = metrics.split(" ");
-									Pattern metricPattern = Pattern.compile("(\\w+):\\((.+)\\)");
-									Matcher metricMatcher;
-									for (String metric : splitMetrics) {
-										metricMatcher = metricPattern.matcher(metric);
-										if (metricMatcher.find()) {
-											String shortMetricName = metricMatcher.group(1);
-											String metricValue = metricMatcher.group(2);
-											String metricName = "";
-											switch (shortMetricName) {
-											case "conf":
-												metricName = "Confidence";
-												break;
-											case "lift":
-												metricName = "Lift";
-												break;
-											case "lev":
-												metricName = "Leverage";
-												break;
-											case "conv":
-												metricName = "Conviction";
-												break;
-											}
-											rule.put(metricName, metricValue);
-										}
-									}
-									
-									rulesList.add(rule);
-									
-								}
-								
+		    if (Explorer.m_Memory.memoryIsLow()) {
+		    	proceed = Explorer.m_Memory.showMemoryIsLow();
+		    }
+		    
+		    if (proceed) {
+				
+				if (thread == null) {
+					thread = new Thread() {
+						@Override
+						public void run() {
+							try {
+								btnApply.setEnabled(false);
+								if (log instanceof TaskLogger) {
+		    		            	((TaskLogger) log).taskStarted();
+		    		            }
+								log.statusMessage("Applying filter...");
+								applyFilter();
+								comboFilter.addItem(comboFilterComponent.getText().trim());
+								comboFilter.setSelectedIndex(0);
+								comboTableColumn.setSelectedIndex(0);
+								comboComparisonType.setSelectedIndex(0);
+								comboAttribute.setSelectedIndex(0);
+								comboLabel.setSelectedIndex(0);
+								log.statusMessage("Applying filter... DONE!");
+								btnClear.setEnabled(true);
+							} catch (Exception e) {
+								btnApply.setEnabled(true);
+								log.statusMessage("Applying filter... FAILED! See log.");
+								log.logMessage(e.getMessage());
 							}
-							scanner.close();
-							if (rulesList.size() > 0) {
-								loadRules(rulesList);
-							}
-						} catch (UnsupportedFlavorException | IOException ex) {
-							log.statusMessage("Loading rules... FAILED! See log.");
-							log.logMessage(ex.getMessage());
+							thread = null;
+							if (log instanceof TaskLogger) {
+	    		            	((TaskLogger) log).taskFinished();
+	    		            }
 						}
+					};
+					thread.setPriority(Thread.MIN_PRIORITY);
+					thread.start();
+				} else {
+					JOptionPane.showMessageDialog(this, THREAD_BUSY_MESSAGE, THREAD_BUSY_TITLE, JOptionPane.WARNING_MESSAGE);
+				}
+				
+			}
+			
+		}
+
+	private void clearRulesFilter() {
+		
+		boolean proceed = true;
+	
+	    if (Explorer.m_Memory.memoryIsLow()) {
+	    	proceed = Explorer.m_Memory.showMemoryIsLow();
+	    }
+	    
+	    if (proceed) {
+	
+			if (thread == null) {
+				thread = new Thread() {
+					@Override
+					public void run() {
+						btnApply.setEnabled(false);
+						btnClear.setEnabled(false);
+						if (log instanceof TaskLogger) {
+    		            	((TaskLogger) log).taskStarted();
+    		            }
+						log.statusMessage("Clearing filter...");
+						comboFilter.setSelectedIndex(-1);
+						comboFilterComponent.setText("");
+						applyFilter();
+						log.statusMessage("Clearing filter... DONE!");
+						if (log instanceof TaskLogger) {
+    		            	((TaskLogger) log).taskFinished();
+    		            }
 						thread = null;
-						log.statusMessage("Loading rules... DONE!");
-						getExplorer().m_LogPanel.taskFinished();
-						Utils.setContainerEnabled(rulesPanel, true);
-    				}
-    			};
-    			thread.setPriority(Thread.MIN_PRIORITY);
-    			thread.start();
-    		}
-        }
+						comboLogicalOperator.setEnabled(false);
+					}
+				};
+				thread.setPriority(Thread.MIN_PRIORITY);
+				thread.start();
+			} else {
+				JOptionPane.showMessageDialog(this, THREAD_BUSY_MESSAGE, THREAD_BUSY_TITLE, JOptionPane.WARNING_MESSAGE);
+			}
+			
+		}
+		
+	}
+
+	private static void applyMetricsFilter() {
+
+		if (thread == null) {
+			thread = new Thread() {
+				@Override
+				public void run() {
+					btnApplyMetric.setEnabled(false);
+					btnResetMetric.setEnabled(false);
+					if (log instanceof TaskLogger) {
+		            	((TaskLogger) log).taskStarted();
+		            }
+					log.statusMessage("Applying minimum values for metrics...");
+					applyFilter();
+					btnResetMetric.setEnabled(true);
+					thread = null;
+					if (log instanceof TaskLogger) {
+		            	((TaskLogger) log).taskFinished();
+		            }
+					log.statusMessage("Applying minimum values for metrics... DONE!");
+				}
+			};
+			thread.setPriority(Thread.MIN_PRIORITY);
+			thread.start();
+		} else {
+			JOptionPane.showMessageDialog(null, THREAD_BUSY_MESSAGE, THREAD_BUSY_TITLE, JOptionPane.WARNING_MESSAGE);
+		}
 		
 	}
 
 	/**
-	 * Loads rules from an {@link AssociationRules} object
-	 *
-	 * @param  rules  the association rules
+	 * Reset metrics to their minimum values
 	 */
-	public static void loadFromObject(final AssociationRules rules) {
+	private void resetMetricsFilter() {
 		
 		boolean proceed = true;
+		
+	    if (Explorer.m_Memory.memoryIsLow()) {
+	    	proceed = Explorer.m_Memory.showMemoryIsLow();
+	    }
+	    
+	    if (proceed) {
+	
+			if (thread == null) {
+				thread = new Thread() {
+					@Override
+					public void run() {
+						if (log instanceof TaskLogger) {
+    		            	((TaskLogger) log).taskStarted();
+    		            }
+						log.statusMessage("Reseting minimum values for metrics...");		
+						for (Map.Entry<String, JSpinner> entry : metricSpinnerMap.entrySet()) {
+							((MetricSpinner) entry.getValue()).reset();
+						}
+						btnApplyMetric.setEnabled(false);
+						btnResetMetric.setEnabled(false);
+						applyFilter();
+						log.statusMessage("Reseting minimum values for metrics... DONE!");
+						if (log instanceof TaskLogger) {
+    		            	((TaskLogger) log).taskFinished();
+    		            }
+						thread = null;
+					}
+				};
+				thread.setPriority(Thread.MIN_PRIORITY);
+				thread.start();
+			} else {
+				JOptionPane.showMessageDialog(this, THREAD_BUSY_MESSAGE, THREAD_BUSY_TITLE, JOptionPane.WARNING_MESSAGE);
+			}
+			
+		}
+		
+	}
+	
+	@SuppressWarnings("unchecked")
+		private static void applyFilter() {
+		
+			/* Lists for filters */
+			List<RowFilter<Object, Object>> filters = new ArrayList<RowFilter<Object, Object>>();
+			
+			/* Rule's filter */
+			RowFilter<Object, Object> rulesFilter = (RowFilter<Object, Object>) buildRulesFilter(comboFilterComponent.getText().trim());
+			if (rulesFilter != null) {
+				filters.add(rulesFilter);
+			}
+			
+			/* Filter for metrics */
+			RowFilter<Object, Object> metricsFilter = (RowFilter<Object, Object>) buildMetricsFilter();
+			if (metricsFilter != null) {
+				filters.add(metricsFilter);
+			}
+			
+			/* Join rule and metric filters */
+			RowFilter<Object, Object> andFilter = RowFilter.andFilter(filters);
+			
+			/* Apply filter to table */
+			sorter.setRowFilter(andFilter);
+			
+			/* Update counting of filtered values */
+			lblFilteredRulesValue.setText(String.valueOf(table.getRowCount()));
+						
+		}
 
-        if (Explorer.m_Memory.memoryIsLow()) {
-        	proceed = Explorer.m_Memory.showMemoryIsLow();
-        }
+	public static void loadRules(final AssociationRules rules) {
+		
+		boolean proceed = true;
 		
 		if (table.getRowCount() > 0) {
 			int response = JOptionPane.showConfirmDialog(
@@ -1506,97 +1594,57 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 				proceed = false;
 			}
 		}
-        
-        if (proceed) {
-    		if (thread == null) {
+
+        if (Explorer.m_Memory.memoryIsLow()) {
+        	proceed = Explorer.m_Memory.showMemoryIsLow();
+        }
+		
+		if (proceed) {
+			
+			if (thread == null) {
 				Utils.setContainerEnabled(rulesPanel, false);
-    			thread = new Thread() {
-    				@Override
-    				public void run() {
-    					
+				thread = new Thread() {
+					@Override
+					public void run() {
+
     		            if (log instanceof TaskLogger) {
     		            	((TaskLogger) log).taskStarted();
     		            }
     					
     					log.statusMessage("Loading rules...");
-    					
-    					List<Map<String, String>> rulesList = new ArrayList<>();
-    					Map<String, String> rule;
-    					
-    					/* Metric names */
-    					String[] metrics = rules.getRules().get(0).getMetricNamesForRule();
-    					
-    					for (AssociationRule r : rules.getRules()) {
-    						
-    						rule = new LinkedHashMap<String, String>();
-    						
-    						/* Antecedent */
-    						String antecedent = "";
-    						for (Item p : r.getPremise()) {
-    							antecedent += p + " ";
-    						}
-    						
-    						/* Consequent */
-    						String consequent = "";
-    						for (Item c : r.getConsequence()) {		
-    							consequent += c + " ";
-    						}
-    						
-    						/* Support */
-    						double supportTemp = ((double) r.getPremiseSupport()) / r.getTotalTransactions();
-    						String support = weka.core.Utils.doubleToString(supportTemp, 2);
-    						
-    						/* Adds antecedent, consequent and support */
-    						rule.put("Antecedent (X)", antecedent.trim());
-    						rule.put("Consequent (Y)", consequent.trim());
-    						rule.put("Support", support);
-    						
-    						/* Adds metric values */
-    						for (String m: metrics) {
-    							try {
-    								double metricValue = r.getNamedMetricValue(m);
-    								String roundedValue = weka.core.Utils.doubleToString(metricValue, 2);
-    								rule.put(m, roundedValue);
-    							} catch (Exception e) {
-    								log.logMessage(e.getMessage());
-    							}
-    						}
-    						
-    						rulesList.add(rule);			
-    						
-    					}
-    					
-    					loadRules(rulesList);
-    					
-    					thread = null;
+		
+						associationRules = rules;
+						loadRules();
+						
+						thread = null;
     					
     					log.statusMessage("Loading rules... DONE!");
     					
     		            if (log instanceof TaskLogger) {
     		            	((TaskLogger) log).taskFinished();
     		            }
-    		            
-    					Utils.setContainerEnabled(rulesPanel, true);
-    					
-    				}
-    			};
-    			thread.setPriority(Thread.MIN_PRIORITY);
+						
+					};
+				};
+				thread.setPriority(Thread.MIN_PRIORITY);
     			thread.start();
-    		} else {
-    			JOptionPane.showMessageDialog(null, THREAD_BUSY_MESSAGE, THREAD_BUSY_TITLE, JOptionPane.WARNING_MESSAGE);
-
-    		}
+			} else {
+				JOptionPane.showMessageDialog(null, THREAD_BUSY_MESSAGE, THREAD_BUSY_TITLE, JOptionPane.WARNING_MESSAGE);
+			}
+		
 		}
 		
 	}
-
+	
 	/**
 	 * Loads rules into a JTable
 	 *
-	 * @param  rules  the list of mapped rules
+	 * @param  rules  the association rules
 	 */
-	private static void loadRules(final List<Map<String, String>> rules) {
-					
+	public static void loadRules() {
+		
+		Utils.setContainerEnabled(rulesPanel, false);
+		
 		comboFilter.removeAllItems();
 		
 		for (Component c : metricsFilterPanel.getComponents()) {
@@ -1611,19 +1659,25 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		table.setModel(new RulesTableModel());
 		table.setColumnModel(new RulesTableColumnModel());
 		table.getTableHeader().setReorderingAllowed(false);
-		
-		mappedRules = rules;
+		    					
+		List<AssociationRule> rulesList = associationRules.getRules();
 		
 		/* Get table model */
 		final DefaultTableModel tableModel = (DefaultTableModel) table.getModel();
 
+		/* Metric names */
+		String[] metrics = rulesList.get(0).getMetricNamesForRule();
+		
 		/* Columns */
-		for (Map.Entry<String, String> e : rules.get(0).entrySet()) {
-			tableModel.addColumn(e.getKey());
+		tableModel.addColumn("Antecedent (X)");
+		tableModel.addColumn("Consequent (Y)");
+		tableModel.addColumn("Support");
+		for (String m : metrics) {
+			tableModel.addColumn(m);
 		}
 		
 		/* Get column model */
-		final TableColumnModel columnModel = table.getColumnModel();
+		final RulesTableColumnModel columnModel = (RulesTableColumnModel) table.getColumnModel();
 		
 		/* Set minimum widths for antecedent and consequent columns */
 		columnModel.getColumn(0).setMinWidth(220);
@@ -1655,6 +1709,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		table.setRowSorter(sorter);
 		table.getRowSorter().addRowSorterListener(new RowSorterListener() {
 			
+			// TODO: Improve sorting performance.
 			@Override
 			public void sorterChanged(RowSorterEvent e) {
 				
@@ -1666,13 +1721,18 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 					int keyColumn = key.getColumn();
 					
 					for (int i = 2; i < columnModel.getColumnCount(); i++) {
-						columnModel.getColumn(i).setCellRenderer(new DecimalFormatCellRenderer());
+						if (columnModel.getColumn(i).getCellRenderer() instanceof ProgressCellRenderer) {
+							columnModel.getColumn(i).setCellRenderer(new DecimalFormatCellRenderer());
+						}
 					}
 					
+					// TODO: Too slow performance when scrolling table with 'ProgresCellRenderer' enabled.
 					String columnName = tableModel.getColumnName(keyColumn);
-					int columnIndex = table.getColumnModel().getColumnIndex(columnName);
-					if (columnIndex > 1) {
-						columnModel.getColumn(columnIndex).setCellRenderer(new ProgressCellRenderer());
+					if (columnModel.hasColumn(columnName)) {
+						int columnIndex = columnModel.getColumnIndex(columnName);
+						if (columnIndex > 1) {
+							columnModel.getColumn(columnIndex).setCellRenderer(new ProgressCellRenderer());
+						}
 					}
 					
 				}
@@ -1682,44 +1742,26 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		});
 		
 		/* Adds rules to table */
-		for (Map<String, String> r : rules) {
-			
-			Collection<String> mapValues = r.values();
-			Iterator<String> iterator = mapValues.iterator();
+		// TODO: Initialize attributes out of loop
+		for (AssociationRule r : rulesList) {
 			
 			/* Antecedent */
-			String antecedent = iterator.next();
-			String[] splitAntecedent = antecedent.split(" ");
-			for (int i = 0; i < splitAntecedent.length; i++) {
-				String s = splitAntecedent[i];
-				int proximo = i + 1;
-				if (proximo < splitAntecedent.length) {
-					if (!splitAntecedent[proximo].matches("(.*)=(.*)")) {
-						s += " " + splitAntecedent[proximo];
-						i = proximo;
-					}
-				}
-				filterMapList[0].addAttributeValue(s);
+			String antecedent = "";
+			for (Item p : r.getPremise()) {
+				antecedent += p + " ";
+				filterMapList[0].addAttributeValue(p.toString());
 			}
 			
 			/* Consequent */
-			String consequent = iterator.next();
-			String[] splitConsequent = consequent.split(" ");
-			for (int i = 0; i < splitConsequent.length; i++) {
-				String s = splitConsequent[i];
-				int proximo = i + 1;
-				if (proximo < splitConsequent.length) {
-					if (!splitConsequent[proximo].matches("(.*)=(.*)")) {
-						s += " " + splitConsequent[proximo];
-						i = proximo;
-					}
-				}
-				filterMapList[1].addAttributeValue(s);
+			String consequent = "";
+			for (Item c : r.getConsequence()) {		
+				consequent += c + " ";
+				filterMapList[1].addAttributeValue(c.toString());	
 			}
 
 			/* Support */
-			String supportTemp = iterator.next();
-			double support = Double.parseDouble(supportTemp);
+			double supportTemp = ((double) r.getTotalSupport()) / r.getTotalTransactions();
+			double support = weka.core.Utils.roundDouble(supportTemp, 2);
 			
 			/* List containing each column's content to be added to table */
 			List<Object> row = new ArrayList<Object>();
@@ -1730,9 +1772,14 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 			row.add(support);
 			
 			/* Adds metric values */
-			while (iterator.hasNext()) {
-				double metricValue = Double.parseDouble(iterator.next());
-				row.add(metricValue);
+			for (String m: metrics) {
+				try {
+					double metricValue = r.getNamedMetricValue(m);
+					double roundedValue = weka.core.Utils.roundDouble(metricValue, 2);
+					row.add(roundedValue);
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
 			}
 			
 			/* Adds a row with values to table */
@@ -1741,7 +1788,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		}
 		
 		/* Get total values for results */
-		lblTotalRulesValue.setText(String.valueOf(rules.size()));
+		lblTotalRulesValue.setText(String.valueOf(rulesList.size()));
 		lblFilteredRulesValue.setText(String.valueOf(table.getRowCount()));
 		
 		/* Initializes attribute's component */
@@ -1751,7 +1798,14 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		
 		/* Initializes filter parameters for metrics */
 		initMetrics();
-					
+		
+		Utils.setContainerEnabled(rulesPanel, true);
+		comboLogicalOperator.setEnabled(false);
+		btnApply.setEnabled(false);
+		btnClear.setEnabled(false);
+		btnApplyMetric.setEnabled(false);
+		btnResetMetric.setEnabled(false);
+		
 	}
 	
 	/** Unused */

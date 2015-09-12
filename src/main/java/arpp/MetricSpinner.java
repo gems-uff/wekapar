@@ -23,5 +23,21 @@ public class MetricSpinner extends JSpinner {
 		setValue(min);
 		
 	}
+	
+	public boolean isMinimumSelected() {
+		
+		boolean isMinimum = true;
+		
+		SpinnerNumberModel spinModel = (SpinnerNumberModel) getModel();
+		double spinModelValue = (double) spinModel.getValue();
+		double spinModelMin = (double) spinModel.getMinimum();
+		
+		if (spinModelValue > spinModelMin) {
+			isMinimum = false;
+		}
+		
+		return isMinimum;
+		
+	}
 
 }
