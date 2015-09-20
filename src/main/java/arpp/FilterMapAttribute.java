@@ -16,7 +16,7 @@ public class FilterMapAttribute implements Serializable {
 	/** for serialization */
 	private static final long serialVersionUID = 1630080590430238566L;
 	private String attribute;
-	private List<String> values = new ArrayList<>();
+	private List<String> labels = new ArrayList<String>();
 	
 	/**
 	 * @param attribute2
@@ -33,17 +33,17 @@ public class FilterMapAttribute implements Serializable {
 		this.attribute = attribute;
 	}
 	
-	public List<String> getValues() {
-		return values;
+	public List<String> getLabels() {
+		return labels;
 	}
 	
-	public void setValues(List<String> values) {
-		this.values = values;
+	public void setLabels(List<String> labels) {
+		this.labels = labels;
 	}
 	
-	public void addValue(String value) {
-		if (!values.contains(value)) {
-			values.add(value);
+	public void addLabel(String label) {
+		if (!labels.contains(label)) {
+			labels.add(label);
 		}
 	}
 	

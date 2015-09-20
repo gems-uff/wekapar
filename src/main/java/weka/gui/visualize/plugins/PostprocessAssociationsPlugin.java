@@ -11,7 +11,7 @@ import weka.gui.explorer.PostprocessAssociationsPanel;
 
 /**
  * Implements weka.gui.visualize.plugins.AssociationRuleVisualizePlugin
- * to create a JMenuItem and loads associator output in postprocess tab.
+ * and creates a JMenuItem to load associator output in postprocess tab.
  * 
  * @author Daniel Silva (danielnsilva@gmail.com)
  */

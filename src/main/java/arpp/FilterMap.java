@@ -12,36 +12,59 @@ import java.util.List;
  */
 public class FilterMap {
 	
-	private List<FilterMapAttribute> attributes = new ArrayList<>();
+	private List<FilterMapAttribute> attributes = new ArrayList<FilterMapAttribute>();
 		
 	public List<FilterMapAttribute> getAttributes() {
+		
 		return attributes;
+		
+	}
+	
+	public List<String> getUniqueLabels() {
+		
+		List<String> uniqueLabels = new ArrayList<String>();
+		
+		for (FilterMapAttribute attribute : attributes) {
+			for (String label : attribute.getLabels()) {
+				if (!uniqueLabels.contains(label)) {
+					uniqueLabels.add(label);
+				}
+			}
+		}
+		
+		return uniqueLabels;
+		
 	}
 	
 	public void setAttributes(List<FilterMapAttribute> attributes) {
+		
 		this.attributes = attributes;
+		
 	}
 	
-	public void addAttributeValue(String attributeValue) {
+	public void addAttribute(String attribute) {
 		
-		String[] splitAttributeValue = attributeValue.split("=");
-		if (splitAttributeValue.length > 1) {
-			String attribute = splitAttributeValue[0];
-			String value = splitAttributeValue[1];
+		String[] splitAttribute = attribute.split("=", 2);
+		
+		if (splitAttribute.length > 1) {
 			
-			FilterMapAttribute filterMapAttribute = new FilterMapAttribute(attribute);
+			String attributeName = splitAttribute[0];
+			String attributeLabel = splitAttribute[1];
+			
+			FilterMapAttribute filterMapAttribute = new FilterMapAttribute(attributeName);
 			
 			if (!attributes.contains(filterMapAttribute)) {
-				filterMapAttribute.addValue(value);
+				filterMapAttribute.addLabel(attributeLabel);
 				attributes.add(filterMapAttribute);
 			} else {
 				for (FilterMapAttribute a : attributes) {
-					if (attribute.equals(a.getAttribute())) {
-						a.addValue(value);
+					if (attributeName.equals(a.getAttribute())) {
+						a.addLabel(attributeLabel);
 						break;
 					}
 				}
 			}
+			
 		}
 		
 	}

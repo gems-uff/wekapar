@@ -41,11 +41,11 @@ public class Utils {
 	 */
 	public static double getColumnMaxValue(JTable table, int colIndex) {
 
-		List<Double> list = new ArrayList<>();
+		List<Double> list = new ArrayList<Double>();
 		TableModel tableModel = table.getModel();
 		
 		for (int i = 0; i < tableModel.getRowCount(); i++) {
-			list.add((double) tableModel.getValueAt(i, colIndex));
+			list.add((Double) tableModel.getValueAt(i, colIndex));
 		}
 		
 		return !list.isEmpty() ? Collections.max(list) : 0;
@@ -61,11 +61,11 @@ public class Utils {
 	 */
 	public static double getColumnMinValue(JTable table, int colIndex) {
 
-		List<Double> list = new ArrayList<>();
+		List<Double> list = new ArrayList<Double>();
 		TableModel tableModel = table.getModel();
 		
 		for (int i = 0; i < tableModel.getRowCount(); i++) {
-			list.add((double) tableModel.getValueAt(i, colIndex));
+			list.add((Double) tableModel.getValueAt(i, colIndex));
 		}
 		
 		return !list.isEmpty() ? Collections.min(list) : 0;

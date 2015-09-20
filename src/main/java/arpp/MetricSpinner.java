@@ -19,7 +19,7 @@ public class MetricSpinner extends JSpinner {
 	public void reset() {
 		
 		SpinnerNumberModel model = (SpinnerNumberModel) getModel();
-		double min = (double) model.getMinimum();
+		double min = (Double) model.getMinimum();
 		setValue(min);
 		
 	}
@@ -29,8 +29,8 @@ public class MetricSpinner extends JSpinner {
 		boolean isMinimum = true;
 		
 		SpinnerNumberModel spinModel = (SpinnerNumberModel) getModel();
-		double spinModelValue = (double) spinModel.getValue();
-		double spinModelMin = (double) spinModel.getMinimum();
+		double spinModelValue = (Double) spinModel.getValue();
+		double spinModelMin = (Double) spinModel.getMinimum();
 		
 		if (spinModelValue > spinModelMin) {
 			isMinimum = false;

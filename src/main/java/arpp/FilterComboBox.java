@@ -3,7 +3,7 @@ package arpp;
 import javax.swing.JComboBox;
 
 /**
- * An customized JComboBox for filtering in postprocess panel
+ * A customized JComboBox for filtering in postprocess panel
  * 
  * @author Daniel Silva (danielnsilva@gmail.com)
  */

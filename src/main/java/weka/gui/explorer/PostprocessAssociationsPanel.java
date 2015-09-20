@@ -1,6 +1,5 @@
 package weka.gui.explorer;
 
-
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Dimension;
@@ -15,6 +14,8 @@ import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.io.File;
@@ -25,6 +26,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
@@ -57,6 +59,7 @@ import javax.swing.border.TitledBorder;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import javax.swing.event.RowSorterEvent;
+import javax.swing.event.RowSorterEvent.Type;
 import javax.swing.event.RowSorterListener;
 import javax.swing.filechooser.FileFilter;
 import javax.swing.filechooser.FileNameExtensionFilter;
@@ -64,6 +67,10 @@ import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableColumn;
 import javax.swing.table.TableModel;
 import javax.swing.table.TableRowSorter;
+
+import org.paukov.combinatorics.Factory;
+import org.paukov.combinatorics.Generator;
+import org.paukov.combinatorics.ICombinatoricsVector;
 
 import weka.associations.AssociationRule;
 import weka.associations.AssociationRules;
@@ -114,21 +121,37 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 	/** Component where rules are loaded */
 	protected static JTable table;
 	
+	/** For sorting and filtering */
 	protected static TableRowSorter<TableModel> sorter;
 	
+	/** A list of filter's strings used by parser */
 	protected static List<String> parseFilterList;
+	
+	/** Keeps filter's string temporarily until add to list */
 	protected static String parseFilterTemp = "";
 	
-	protected static FilterMap[] filterMapList;
+	/** Maps all attributes to be used in filter */
+	protected static FilterMap[] filterMap = new FilterMap[2];
 	
+	/** Maps attributes of the antecedent and its labels */
+	protected static FilterMap antecedentMap = filterMap[0] = new FilterMap();
+	
+	/** Maps attributes of the consequent and its labels */
+	protected static FilterMap consequentMap = filterMap[1] = new FilterMap();
+	
+	/** A label to display the total number of rules */
 	protected static JLabel lblTotalRulesValue;
 	
+	/** A label to display the total number of filtered rules */
 	protected static JLabel lblFilteredRulesValue;
 	
+	/** Component to select logical operator to be used in filter */
 	protected static JComboBox<String> comboLogicalOperator;
 	
+	/** Component to select antecedent or consequent column in which filter will be applied */
 	protected static JComboBox<ComboBoxItem> comboTableColumn;
 	
+	/**  */
 	protected static JComboBox<String> comboComparisonType;
 	
 	protected static JComboBox<ComboBoxItem> comboAttribute;
@@ -152,6 +175,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 	private JButton btnOpen;
 	protected static JButton btnExport;
 
+	/** the association rules */
 	private static AssociationRules associationRules;
 	
 	/** The file chooser for save/open rules and apply filters. */
@@ -192,7 +216,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 	private static JSpinner spinConviction;
 	
 	/** HashMap for metric's JSpiner components */
-	private static HashMap<String, JSpinner> metricSpinnerMap = new HashMap<>();
+	private static HashMap<String, JSpinner> metricSpinnerMap = new HashMap<String, JSpinner>();
 	
 	/** Apply metric's minimum values to rules */
 	private static JButton btnApplyMetric;
@@ -209,6 +233,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 	
 	private static ChangeListener metricChangeListener;
 	private JPanel metricButtonsPanel;
+	
 	/**
 	 * Create the postprocess panel.
 	 */
@@ -350,8 +375,8 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 			public void itemStateChanged(ItemEvent arg0) {
 				if (comboTableColumn.getSelectedIndex() > -1) {
 					comboAttribute.removeAllItems();
-					int key = (int) ((ComboBoxItem) comboTableColumn.getSelectedItem()).getKey();
-					for (FilterMapAttribute f : filterMapList[key].getAttributes()) {
+					int key = (Integer) ((ComboBoxItem) comboTableColumn.getSelectedItem()).getKey();
+					for (FilterMapAttribute f : filterMap[key].getAttributes()) {
 						comboAttribute.addItem(new ComboBoxItem(f, f.getAttribute()));
 					}
 				}
@@ -383,7 +408,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 					comboLabel.removeAllItems();
 					comboLabel.addItem("All");
 					FilterMapAttribute selected = (FilterMapAttribute) ((ComboBoxItem) comboAttribute.getSelectedItem()).getKey();
-					for (String v : selected.getValues()) {
+					for (String v : selected.getLabels()) {
 						comboLabel.addItem(v);
 					}
 				}
@@ -633,6 +658,12 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		tablePanel.add(scrollPaneTable);
 		
 		table = new JTable();
+		table.addMouseListener(new MouseAdapter() {
+			@Override
+			public void mouseClicked(MouseEvent e) {
+				filterSubSet(e);
+			}
+		});
 		
 		/* Forces tab selection every time the data model in table is changed.
 		 * I need to select this tab after click on visualization menu item
@@ -688,32 +719,23 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 						spinner.setEnabled(chckbx.isSelected());
 						spinner.reset();
 					}
-					
-					String message = "";
-					
+										
 					if (chckbx.isSelected()) {
-						message = "Enabling column... ";
-						log.statusMessage(message);
+						log.statusMessage("Enabling column...");
 						columnModel.showColumn(metricName);
-						if (!sorter.getSortKeys().isEmpty()) {
-							int keyColumn = sorter.getSortKeys().get(0).getColumn();
-							if (keyColumn < columnModel.getColumnCount()) {
-								if (!table.getColumnName(keyColumn).equals(metricName)) {
-									int columnIndex = columnModel.getColumnIndex(metricName);
-									columnModel.getColumn(columnIndex).setCellRenderer(new DecimalFormatCellRenderer());
-								}
-							}
-						}
 					} else {
-						message = "Disabling column...";
-						log.statusMessage(message);
+						log.statusMessage("Disabling column...");
+						if (sorter.getSortKeys().contains(metricName)) {
+							List<SortKey> sortKeys = Collections.emptyList();
+							sorter.setSortKeys(sortKeys);
+						}
 						columnModel.hideColumn(metricName);
 					}
 					
 					applyFilter();
 					
 					thread = null;
-					log.statusMessage(message + " DONE!");
+					log.statusMessage("OK");
 					if (log instanceof TaskLogger) {
 		            	((TaskLogger) log).taskFinished();
 		            }
@@ -769,7 +791,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 							file = new File(filePath);
 						}
 						
-						List<String> visibleColumns = new ArrayList<>();
+						List<String> visibleColumns = new ArrayList<String>();
 						TableModel tableModel = table.getModel();
 						int columnCount = tableModel.getColumnCount();
 						int modelRowCount = tableModel.getRowCount();
@@ -796,7 +818,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 								if (visibleColumns.contains(columnName)) {
 									currentRow = row;
 									if (tableRowCount < modelRowCount) {
-										currentRow = table.convertColumnIndexToModel(row);
+										currentRow = table.convertRowIndexToModel(row);
 									}
 									csvData.append("\"" + tableModel.getValueAt(currentRow, col) + "\"");
 								}
@@ -812,9 +834,9 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 							w.write(csvData.toString());
 							w.flush();
 							w.close();
-							log.statusMessage("Exporting rules... DONE!");
+							log.statusMessage("OK");
 						} catch (IOException e) {
-							log.statusMessage("Exporting rules... FAILED! See log.");
+							log.statusMessage("FAILED! See log.");
 							log.logMessage(e.getMessage());
 						}
 						
@@ -841,8 +863,10 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		
 		if (thread == null) {
 			thread = new Thread() {
+				
 				@Override
 				public void run() {
+					
 					int option = fileChooserSaveOpen.showOpenDialog(rulesPanel);
 					if (option == JFileChooser.APPROVE_OPTION) {
 
@@ -850,21 +874,26 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
     		            	((TaskLogger) log).taskStarted();
     		            }
 						
-						// TODO: Add message to inform when reading file
-						log.statusMessage("Loading rules...");
-						
+						log.statusMessage("Choosing file...");
 						File file = fileChooserSaveOpen.getSelectedFile();
+						
 						try {
+							
+							log.statusMessage("Reading file...");
 							FileInputStream fis = new FileInputStream(file);
-							ObjectInputStream ois = new ObjectInputStream(fis);	
+							ObjectInputStream ois = new ObjectInputStream(fis);
 							associationRules = (AssociationRules) ois.readObject();
+							log.statusMessage("Loading rules...");
 							loadRules();
 							comboFilter.setModel((ComboBoxModel<Object>) ois.readObject());
 							ois.close();
-							log.statusMessage("Loading rules... DONE!");
-						} catch (IOException | ClassNotFoundException e) {
-							log.statusMessage("Loading rules... FAILED! See log.");
+							log.statusMessage("OK");
+							
+						} catch (Exception e) {
+							
+							log.statusMessage("FAILED! See log.");
 							log.logMessage(e.getMessage());
+							
 						}
 						
 					}
@@ -876,6 +905,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		            }
 					
 				}
+				
 			};
 			thread.setPriority(Thread.MIN_PRIORITY);
 			thread.start();
@@ -915,10 +945,10 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 							
 							oos.close();
 							
-							log.statusMessage("Saving rules... DONE!");
+							log.statusMessage("OK");
 							
 						} catch (Exception e) {
-							log.statusMessage("Saving rules... FAILED! See log.");
+							log.statusMessage("FAILED! See log.");
 							log.logMessage(e.getMessage());
 						}
 						
@@ -985,7 +1015,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 			
 			if (c instanceof JCheckBox) {
 				
-				/* Listen to JCheckBox checked status and show/hide columns */
+				/* Listen to JCheckBox checked status to show/hide columns */
 				((JCheckBox) c).addActionListener(new ActionListener() {
 					@Override
 					public void actionPerformed(ActionEvent e) {
@@ -993,7 +1023,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 					}
 				});
 				
-				/* Listen to JCheckBox enabled property and
+				/* Listen to JCheckBox enabled property to
 				 * change respective JSpinner enabled property
 				 */
 				((JCheckBox) c).addPropertyChangeListener("enabled", new PropertyChangeListener() {
@@ -1040,7 +1070,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		
 		filter += column;
 		if (comparisonOperator.equals("EQUALS")) {
-			p = Pattern.compile(column+"\\[\\^(.*?)\\$\\]");
+			p = Pattern.compile(".*"+column+"\\[\\^(.*?)\\$\\]");
 		    m = p.matcher(componentText);
 		    found = m.find();
 		    if (found && logicalOperator.equals("AND")) {
@@ -1067,8 +1097,8 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		}
 		filter += found && logicalOperator.equals("AND") ? "( |)" : "";
 		if (found && logicalOperator.equals("AND")) {
-			int lastIndex = componentText.lastIndexOf(m.group());
-			int start = componentText.indexOf("^", lastIndex);
+			int lastIndex = componentText.lastIndexOf(m.group(m.groupCount()));
+			int start = componentText.indexOf("^", lastIndex - 1);
 			int end = componentText.indexOf("$", lastIndex);
 			String content = componentText.substring(start+1, end);
 			boolean contains = false;
@@ -1143,7 +1173,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 			for (Map.Entry<String, JSpinner> entry : metricSpinnerMap.entrySet()) {
 				metricFilter = new ArrayList<RowFilter<Object, Object>>();
 				key = entry.getKey();
-				value = (double) (entry.getValue()).getValue();
+				value = (Double) (entry.getValue()).getValue();
 				if (columnModel.hasColumn(key)) {
 					columnIndex = table.getColumnModel().getColumnIndex(key);
 					filterEqual = RowFilter.numberFilter(ComparisonType.EQUAL, value, table.convertColumnIndexToModel(columnIndex));
@@ -1174,12 +1204,12 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		/* Remove empty spaces */
 		filter = filter.trim();
 		
-		/* Once there is an empty string, the filter will removed. */
+		/* Once there is an empty string, the filter will be removed. */
 		if (filter.length() == 0) {
 			
 			rowFilter = null;
 		
-		/* If pattern has not found, no treatment will be applied. */
+		/* If the pattern has not found, no treatment will be applied. */
 		} else if (!Pattern.compile("(X|Y)\\[.+\\]").matcher(filter).find()) {
 			
 			rowFilter = RowFilter.regexFilter(filter, 0, 1);
@@ -1187,8 +1217,8 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		/* Otherwise... */
 		} else {
 			
-			List<RowFilter<Object, Object>> filters = new ArrayList<>();
-			List<String> operators = new ArrayList<>();
+			List<RowFilter<Object, Object>> filters = new ArrayList<RowFilter<Object, Object>>();
+			List<String> operators = new ArrayList<String>();
 			
 			/* The filter has similar form of an association rule. The symbol
 			 * between LHS and RHS means an "AND" operator.
@@ -1199,7 +1229,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 			filter = "(" + filter + ")";
 			
 			/* Initalize list of filters used by parser */
-			parseFilterList = new ArrayList<>();
+			parseFilterList = new ArrayList<String>();
 			
 			/* Parses content to filter */
 			filterParser(filter, 0, false, 0);
@@ -1207,13 +1237,13 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 			for (String f : parseFilterList) {
 				
 				String[] splitOr = f.split(" OR ");
-				List<RowFilter<Object, Object>> filterList = new ArrayList<>();
+				List<RowFilter<Object, Object>> filterList = new ArrayList<RowFilter<Object, Object>>();
 				
 				for (String itemOr : splitOr) {
 					if (!itemOr.equals("")) {
 						String[] splitAnd = itemOr.split(" AND ");
 						if (splitAnd.length > 1) {
-							List<RowFilter<Object, Object>> andFilters = new ArrayList<>();
+							List<RowFilter<Object, Object>> andFilters = new ArrayList<RowFilter<Object, Object>>();
 							for (String itemAnd : splitAnd) {
 								if (!itemAnd.equals("")) {
 									andFilters.add(filterItemParser(itemAnd));
@@ -1240,7 +1270,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 			
 			if (operators.size() > 0) {
 				filters.add(rowFilter);
-				List<RowFilter<Object, Object>> tempList = new ArrayList<>();
+				List<RowFilter<Object, Object>> tempList = new ArrayList<RowFilter<Object, Object>>();
 				tempList.add(filters.get(0));
 				for (int i = 0; i < operators.size(); i++) {
 					tempList.add(filters.get(i+1));
@@ -1249,7 +1279,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 					} else if (operators.get(i).equals("OR")) {
 						rowFilter = RowFilter.orFilter(tempList);
 					}
-					tempList = new ArrayList<>();
+					tempList = new ArrayList<RowFilter<Object, Object>>();
 					tempList.add(rowFilter);
 				}
 			}
@@ -1386,6 +1416,145 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		
 	}
 
+	
+	/**
+	 * Applies filter to find a subset of rules as a result from
+	 * generated subsets of a initial set of the antecedents in
+	 * selected row keeping same consequent.
+	 * 
+	 * @param e	Mouse event
+	 */
+	private void filterSubSet(MouseEvent e) {
+	
+		/* Is it a double click? */
+		if (e.getClickCount() == 2) {
+			
+			comboFilterComponent.setText("");
+	
+			String[] attributeSplit;
+			String attributeName;
+			String attributeLabel;
+			
+			String attributeNames;
+			String attributeLabels;
+			
+			String pattern;
+			Pattern p;
+			Matcher m;
+			
+			/* Get values of selected row */
+			JTable target = (JTable) e.getSource();
+			int row = target.getSelectedRow();
+			String antecedent = (String) target.getValueAt(row, 0);
+			String consequent = (String) target.getValueAt(row, 1);
+			
+			/* Get the lists of attributes and labels from antecedent */
+			List<FilterMapAttribute> antecedentAttributes = antecedentMap.getAttributes();
+			List<String> antecedentLabels = antecedentMap.getUniqueLabels();
+			
+			/* Get all attributes */
+			attributeNames = "";
+			for (int i = 0; i < antecedentAttributes.size(); i++) {
+				attributeNames += antecedentAttributes.get(i).getAttribute();
+				attributeNames += (i + 1) < antecedentAttributes.size() ? "|" : "";
+			}
+			
+			/* Get all labels */			
+			attributeLabels = "";
+			for (int i = 0; i < antecedentLabels.size(); i++) {
+				attributeLabels += antecedentLabels.get(i);
+				attributeLabels += (i + 1) < antecedentLabels.size() ? "|" : "";
+			}
+			
+			/* Find attributes in string and adds to list */
+			List<String> antecedents = new ArrayList<String>();
+			pattern = "((" + attributeNames + ")=(" + attributeLabels + "))";
+			p = Pattern.compile(pattern);
+			m = p.matcher(antecedent);
+			while (m.find()) {
+				antecedents.add(m.group());
+			}
+			
+			/* Create the initial set of antecedents */
+			ICombinatoricsVector<String> antecedentSet = Factory.createVector(antecedents);
+			
+			/* Create an instance of the subset generator */
+			Generator<String> antecedentGen = Factory.createSubSetGenerator(antecedentSet);
+			
+			/* Logical operators for filter (OR/AND) */
+			String logicalOperator = "";
+			
+			/* A generated subset */
+			ICombinatoricsVector<String> subSet;
+			
+			/* Loop list in reverse order */
+			for (int i = (int) antecedentGen.getNumberOfGeneratedObjects() - 1; i > 0; i--) {
+				
+				/* Current subset */
+				subSet = antecedentGen.generateAllObjects().get(i);
+				
+				/* Loop subset to add its attributes in filter */
+				for (int j = 0; j < subSet.getSize(); j++) {
+					
+					/* Get attribute and label */
+					attributeSplit = subSet.getValue(j).split("=", 2);
+					attributeName = attributeSplit[0];
+					attributeLabel = attributeSplit[1];
+					
+					/* Each subset begins with a "OR" filter
+					 * for grouping its attributes in filter.
+					 */
+					logicalOperator = j == 0 ? "OR" : "AND";
+					
+					/* Adds filter */
+					addFilter("X", "EQUALS", logicalOperator, attributeName, attributeLabel);
+					
+				}
+			}
+			
+			/* Get the lists of attributes and labels from consequent */
+			List<FilterMapAttribute> consequentAttributes = antecedentMap.getAttributes();
+			List<String> consequentLabels = antecedentMap.getUniqueLabels();
+			
+			/* Get all attributes */
+			attributeNames = "";
+			for (int i = 0; i < consequentAttributes.size(); i++) {
+				attributeNames += consequentAttributes.get(i).getAttribute();
+				attributeNames += (i + 1) < consequentAttributes.size() ? "|" : "";
+			}
+			
+			/* Get all labels */			
+			attributeLabels = "";
+			for (int i = 0; i < consequentLabels.size(); i++) {
+				attributeLabels += consequentLabels.get(i);
+				attributeLabels += (i + 1) < consequentLabels.size() ? "|" : "";
+			}
+			
+			/* Find attributes in string and adds to filter */
+			pattern = "((" + attributeNames + ")=(" + attributeLabels + "))";
+			p = Pattern.compile(pattern);
+			m = p.matcher(consequent);
+			while (m.find()) {
+				
+				/* Get attribute and label */
+				attributeSplit = m.group().split("=", 2);
+				attributeName = attributeSplit[0];
+				attributeLabel = attributeSplit[1];
+				
+				/* Adds filter */
+				addFilter("Y", "EQUALS", logicalOperator, attributeName, attributeLabel);
+				
+			}
+			
+			applyMetricsFilter();
+			
+		}
+		
+	}
+
+	/**
+	 * Apply filter for rules
+	 */
 	private void applyRulesFilter() {
 			
 			boolean proceed = true;
@@ -1413,11 +1582,11 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 								comboComparisonType.setSelectedIndex(0);
 								comboAttribute.setSelectedIndex(0);
 								comboLabel.setSelectedIndex(0);
-								log.statusMessage("Applying filter... DONE!");
+								log.statusMessage("OK");
 								btnClear.setEnabled(true);
 							} catch (Exception e) {
 								btnApply.setEnabled(true);
-								log.statusMessage("Applying filter... FAILED! See log.");
+								log.statusMessage("FAILED! See log.");
 								log.logMessage(e.getMessage());
 							}
 							thread = null;
@@ -1436,6 +1605,9 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 			
 		}
 
+	/**
+	 * Clear applied filter for rules
+	 */
 	private void clearRulesFilter() {
 		
 		boolean proceed = true;
@@ -1450,21 +1622,31 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 				thread = new Thread() {
 					@Override
 					public void run() {
+						
 						btnApply.setEnabled(false);
 						btnClear.setEnabled(false);
+						
 						if (log instanceof TaskLogger) {
     		            	((TaskLogger) log).taskStarted();
     		            }
+						
 						log.statusMessage("Clearing filter...");
+						
 						comboFilter.setSelectedIndex(-1);
 						comboFilterComponent.setText("");
+						
 						applyFilter();
-						log.statusMessage("Clearing filter... DONE!");
+						
+						log.statusMessage("OK");
+						
 						if (log instanceof TaskLogger) {
     		            	((TaskLogger) log).taskFinished();
     		            }
+						
 						thread = null;
+						
 						comboLogicalOperator.setEnabled(false);
+						
 					}
 				};
 				thread.setPriority(Thread.MIN_PRIORITY);
@@ -1477,8 +1659,11 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		
 	}
 
+	/**
+	 * Apply filter for rule's metrics
+	 */
 	private static void applyMetricsFilter() {
-
+		
 		if (thread == null) {
 			thread = new Thread() {
 				@Override
@@ -1495,7 +1680,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 					if (log instanceof TaskLogger) {
 		            	((TaskLogger) log).taskFinished();
 		            }
-					log.statusMessage("Applying minimum values for metrics... DONE!");
+					log.statusMessage("OK");
 				}
 			};
 			thread.setPriority(Thread.MIN_PRIORITY);
@@ -1507,7 +1692,8 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 	}
 
 	/**
-	 * Reset metrics to their minimum values
+	 * Reset metrics to their minimum values and
+	 * clears applied filter for rule's metrics.
 	 */
 	private void resetMetricsFilter() {
 		
@@ -1533,7 +1719,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 						btnApplyMetric.setEnabled(false);
 						btnResetMetric.setEnabled(false);
 						applyFilter();
-						log.statusMessage("Reseting minimum values for metrics... DONE!");
+						log.statusMessage("OK");
 						if (log instanceof TaskLogger) {
     		            	((TaskLogger) log).taskFinished();
     		            }
@@ -1551,33 +1737,33 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 	}
 	
 	@SuppressWarnings("unchecked")
-		private static void applyFilter() {
+	private static void applyFilter() {
+
+		/* Lists for filters */
+		List<RowFilter<Object, Object>> filters = new ArrayList<RowFilter<Object, Object>>();
 		
-			/* Lists for filters */
-			List<RowFilter<Object, Object>> filters = new ArrayList<RowFilter<Object, Object>>();
-			
-			/* Rule's filter */
-			RowFilter<Object, Object> rulesFilter = (RowFilter<Object, Object>) buildRulesFilter(comboFilterComponent.getText().trim());
-			if (rulesFilter != null) {
-				filters.add(rulesFilter);
-			}
-			
-			/* Filter for metrics */
-			RowFilter<Object, Object> metricsFilter = (RowFilter<Object, Object>) buildMetricsFilter();
-			if (metricsFilter != null) {
-				filters.add(metricsFilter);
-			}
-			
-			/* Join rule and metric filters */
-			RowFilter<Object, Object> andFilter = RowFilter.andFilter(filters);
-			
-			/* Apply filter to table */
-			sorter.setRowFilter(andFilter);
-			
-			/* Update counting of filtered values */
-			lblFilteredRulesValue.setText(String.valueOf(table.getRowCount()));
-						
+		/* Rule's filter */
+		RowFilter<Object, Object> rulesFilter = (RowFilter<Object, Object>) buildRulesFilter(comboFilterComponent.getText().trim());
+		if (rulesFilter != null) {
+			filters.add(rulesFilter);
 		}
+		
+		/* Filter for metrics */
+		RowFilter<Object, Object> metricsFilter = (RowFilter<Object, Object>) buildMetricsFilter();
+		if (metricsFilter != null) {
+			filters.add(metricsFilter);
+		}
+		
+		/* Join rule and metric filters */
+		RowFilter<Object, Object> andFilter = RowFilter.andFilter(filters);
+		
+		/* Apply filter to table */
+		sorter.setRowFilter(andFilter);
+		
+		/* Update counting of filtered values */
+		lblFilteredRulesValue.setText(String.valueOf(table.getRowCount()));
+						
+	}
 
 	public static void loadRules(final AssociationRules rules) {
 		
@@ -1606,23 +1792,36 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 				thread = new Thread() {
 					@Override
 					public void run() {
-
-    		            if (log instanceof TaskLogger) {
-    		            	((TaskLogger) log).taskStarted();
-    		            }
-    					
-    					log.statusMessage("Loading rules...");
-		
-						associationRules = rules;
-						loadRules();
 						
-						thread = null;
-    					
-    					log.statusMessage("Loading rules... DONE!");
-    					
-    		            if (log instanceof TaskLogger) {
-    		            	((TaskLogger) log).taskFinished();
-    		            }
+						try {
+
+	    		            if (log instanceof TaskLogger) {
+	    		            	((TaskLogger) log).taskStarted();
+	    		            }
+	    					
+	    					log.statusMessage("Loading rules...");
+			
+							associationRules = rules;
+							loadRules();
+							
+							thread = null;
+	    					
+	    					log.statusMessage("OK");
+	    					
+	    		            if (log instanceof TaskLogger) {
+	    		            	((TaskLogger) log).taskFinished();
+	    		            }
+							
+						} catch (Exception e) {
+
+							log.statusMessage("FAILED! See log.");
+							log.logMessage(e.getMessage());
+	    					
+	    		            if (log instanceof TaskLogger) {
+	    		            	((TaskLogger) log).taskFinished();
+	    		            }
+							
+						}
 						
 					};
 				};
@@ -1664,7 +1863,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		
 		/* Get table model */
 		final DefaultTableModel tableModel = (DefaultTableModel) table.getModel();
-
+	
 		/* Metric names */
 		String[] metrics = rulesList.get(0).getMetricNamesForRule();
 		
@@ -1699,11 +1898,6 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 			
 		}
 		
-		/* Set FilterMap instance for antecedent and consequent columns */
-		filterMapList = new FilterMap[2];
-		filterMapList[0] = new FilterMap();
-		filterMapList[1] = new FilterMap();
-		
 		/* Set table's RowSorter for sorting and filterig */
 		sorter = new TableRowSorter<TableModel>(tableModel);
 		table.setRowSorter(sorter);
@@ -1713,26 +1907,33 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 			@Override
 			public void sorterChanged(RowSorterEvent e) {
 				
-				List<?> sortKeys = e.getSource().getSortKeys();
-				
-				if (sortKeys.size() > 0) {
+				if (e.getType() == Type.SORTED) {
 					
-					RowSorter.SortKey key = (SortKey) sortKeys.get(0);
-					int keyColumn = key.getColumn();
-					
-					for (int i = 2; i < columnModel.getColumnCount(); i++) {
-						if (columnModel.getColumn(i).getCellRenderer() instanceof ProgressCellRenderer) {
-							columnModel.getColumn(i).setCellRenderer(new DecimalFormatCellRenderer());
+					Enumeration<TableColumn> columns = columnModel.getColumns();
+					TableColumn column;
+					while (columns.hasMoreElements()) {
+						column = columns.nextElement();
+						if (column.getCellRenderer() instanceof ProgressCellRenderer) {
+							column.setCellRenderer(new DecimalFormatCellRenderer());
 						}
 					}
 					
-					// TODO: Too slow performance when scrolling table with 'ProgresCellRenderer' enabled.
-					String columnName = tableModel.getColumnName(keyColumn);
-					if (columnModel.hasColumn(columnName)) {
-						int columnIndex = columnModel.getColumnIndex(columnName);
-						if (columnIndex > 1) {
-							columnModel.getColumn(columnIndex).setCellRenderer(new ProgressCellRenderer());
+					List<?> sortKeys = e.getSource().getSortKeys();
+									
+					if (sortKeys.size() > 0) {
+						
+						RowSorter.SortKey key = (SortKey) sortKeys.get(0);
+						int keyColumn = key.getColumn();
+						
+						// TODO: Too slow performance when scrolling table with 'ProgresCellRenderer' enabled.
+						String columnName = tableModel.getColumnName(keyColumn);
+						if (columnModel.hasColumn(columnName)) {
+							int columnIndex = columnModel.getColumnIndex(columnName);
+							if (tableModel.getColumnClass(columnIndex) == Double.class) {
+								columnModel.getColumn(columnIndex).setCellRenderer(new ProgressCellRenderer());
+							}
 						}
+						
 					}
 					
 				}
@@ -1742,26 +1943,33 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		});
 		
 		/* Adds rules to table */
-		// TODO: Initialize attributes out of loop
+		
+		String antecedent = "";
+		String consequent = "";
+		double supportTemp;
+		double support;
+		double metricValue;
+		double roundedValue;
+		
 		for (AssociationRule r : rulesList) {
 			
 			/* Antecedent */
-			String antecedent = "";
+			antecedent = "";
 			for (Item p : r.getPremise()) {
 				antecedent += p + " ";
-				filterMapList[0].addAttributeValue(p.toString());
+				antecedentMap.addAttribute(p.toString());
 			}
 			
 			/* Consequent */
-			String consequent = "";
+			consequent = "";
 			for (Item c : r.getConsequence()) {		
 				consequent += c + " ";
-				filterMapList[1].addAttributeValue(c.toString());	
+				consequentMap.addAttribute(c.toString());
 			}
-
+	
 			/* Support */
-			double supportTemp = ((double) r.getTotalSupport()) / r.getTotalTransactions();
-			double support = weka.core.Utils.roundDouble(supportTemp, 2);
+			supportTemp = ((double) r.getTotalSupport()) / r.getTotalTransactions();
+			support = weka.core.Utils.roundDouble(supportTemp, 2);
 			
 			/* List containing each column's content to be added to table */
 			List<Object> row = new ArrayList<Object>();
@@ -1774,8 +1982,8 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 			/* Adds metric values */
 			for (String m: metrics) {
 				try {
-					double metricValue = r.getNamedMetricValue(m);
-					double roundedValue = weka.core.Utils.roundDouble(metricValue, 2);
+					metricValue = r.getNamedMetricValue(m);
+					roundedValue = weka.core.Utils.roundDouble(metricValue, 2);
 					row.add(roundedValue);
 				} catch (Exception e) {
 					e.printStackTrace();

@@ -19,7 +19,7 @@ public class ProgressCellRenderer extends JProgressBar implements TableCellRende
 			boolean isSelected, boolean hasFocus, int row, int column) {
 		
 		double maxValue = Utils.getColumnMaxValue(table, column);
-		int progress = (int) Math.round((((double) value / maxValue)) * 100);
+		int progress = (int) Math.round((((Double) value / maxValue)) * 100);
         setValue(progress);
         setString(value.toString());
         

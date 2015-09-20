@@ -11,7 +11,7 @@ public class RulesTableColumnModel extends DefaultTableColumnModel {
 	/** for serialization */
 	private static final long serialVersionUID = 656843853519023037L;
 	
-	private Map<String, RulesTableIndexedColumn> hiddenColumns = new HashMap<>();
+	private Map<String, RulesTableIndexedColumn> hiddenColumns = new HashMap<String, RulesTableIndexedColumn>();
 	
 	public void hideColumn(String columnName) {
 		
