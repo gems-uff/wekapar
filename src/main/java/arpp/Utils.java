@@ -33,20 +33,36 @@ public class Utils {
 	}
 	
 	/**
+	 * Get content from each cell of a {@link TableColumn}.
+	 * 
+	 * @param table the {@link JTable} component
+	 * @param colIndex the index of column
+	 * @return the list with all column's values
+	 */
+	private static List<Double> getColumnValues(JTable table, int colIndex) {
+		
+		List<Double> list = new ArrayList<Double>();
+		TableModel tableModel = table.getModel();
+		int modelIndex = table.convertColumnIndexToModel(colIndex);
+		
+		for (int i = 0; i < tableModel.getRowCount(); i++) {
+			list.add((Double) tableModel.getValueAt(i, modelIndex));
+		}
+		
+		return list;
+		
+	}
+	
+	/**
 	 * Get the maximum value of a {@link TableColumn}.
 	 * 
 	 * @param table the {@link JTable} component
 	 * @param colIndex the index of column
-	 * @return the maximum value
+	 * @return the maximum value; or 0 if no value was found
 	 */
 	public static double getColumnMaxValue(JTable table, int colIndex) {
-
-		List<Double> list = new ArrayList<Double>();
-		TableModel tableModel = table.getModel();
 		
-		for (int i = 0; i < tableModel.getRowCount(); i++) {
-			list.add((Double) tableModel.getValueAt(i, colIndex));
-		}
+		List<Double> list = getColumnValues(table, colIndex);
 		
 		return !list.isEmpty() ? Collections.max(list) : 0;
 		
@@ -57,16 +73,11 @@ public class Utils {
 	 * 
 	 * @param table the {@link JTable} component
 	 * @param colIndex the index of column
-	 * @return the minimum value
+	 * @return the minimum value; or 0 if no value was found
 	 */
 	public static double getColumnMinValue(JTable table, int colIndex) {
-
-		List<Double> list = new ArrayList<Double>();
-		TableModel tableModel = table.getModel();
 		
-		for (int i = 0; i < tableModel.getRowCount(); i++) {
-			list.add((Double) tableModel.getValueAt(i, colIndex));
-		}
+		List<Double> list = getColumnValues(table, colIndex);
 		
 		return !list.isEmpty() ? Collections.min(list) : 0;
 		
@@ -90,6 +101,12 @@ public class Utils {
 				}
 			}
 		}
+		
+	}
+	
+	public static String getVersion() {
+		
+		return "0-4-0";
 		
 	}
 
