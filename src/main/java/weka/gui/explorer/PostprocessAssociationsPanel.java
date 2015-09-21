@@ -8,6 +8,7 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
 import java.awt.Insets;
+import java.awt.Point;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.ItemEvent;
@@ -41,8 +42,10 @@ import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
+import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.JSeparator;
 import javax.swing.JSpinner;
@@ -657,11 +660,32 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		JScrollPane scrollPaneTable = new JScrollPane();
 		tablePanel.add(scrollPaneTable);
 		
+		JPopupMenu tablePopupMenu = new JPopupMenu();
+		JMenuItem menuItemSubSet = new JMenuItem("Find subsets for this rule");
+		menuItemSubSet.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				int row = table.getSelectedRow();
+				filterSubSet(table, row);
+			}
+		});
+		tablePopupMenu.add(menuItemSubSet);
+		
 		table = new JTable();
+		table.setComponentPopupMenu(tablePopupMenu);
 		table.addMouseListener(new MouseAdapter() {
 			@Override
 			public void mouseClicked(MouseEvent e) {
-				filterSubSet(e);
+				if (e.getClickCount() == 2) {
+					int row = table.getSelectedRow();
+					filterSubSet(table, row);
+				}
+			}
+			@Override
+			public void mousePressed(MouseEvent e) {
+		        Point point = e.getPoint();
+		        int currentRow = table.rowAtPoint(point);
+		        table.setRowSelectionInterval(currentRow, currentRow);
 			}
 		});
 		
@@ -937,6 +961,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 							ObjectOutputStream oos = new ObjectOutputStream(fos);
 							oos.writeObject(associationRules);
 							oos.writeObject(comboFilter.getModel());
+							oos.writeObject(Utils.getVersion());
 							
 							/* Need to be reinitialized to prevent unexpected behavior from
 							 * JComboBox component after calling getModel method.
@@ -1421,134 +1446,128 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 	 * Applies filter to find a subset of rules as a result from
 	 * generated subsets of a initial set of the antecedents in
 	 * selected row keeping same consequent.
+	 * @param table 
 	 * 
 	 * @param e	Mouse event
 	 */
-	private void filterSubSet(MouseEvent e) {
+	private void filterSubSet(JTable target, int row) {
 	
-		/* Is it a double click? */
-		if (e.getClickCount() == 2) {
+		comboFilterComponent.setText("");
+
+		String[] attributeSplit;
+		String attributeName;
+		String attributeLabel;
+		
+		String attributeNames;
+		String attributeLabels;
+		
+		String pattern;
+		Pattern p;
+		Matcher m;
+		
+		/* Get values of selected row */
+		String antecedent = (String) target.getValueAt(row, 0);
+		String consequent = (String) target.getValueAt(row, 1);
+		
+		/* Get the lists of attributes and labels from antecedent */
+		List<FilterMapAttribute> antecedentAttributes = antecedentMap.getAttributes();
+		List<String> antecedentLabels = antecedentMap.getUniqueLabels();
+		
+		/* Get all attributes */
+		attributeNames = "";
+		for (int i = 0; i < antecedentAttributes.size(); i++) {
+			attributeNames += antecedentAttributes.get(i).getAttribute();
+			attributeNames += (i + 1) < antecedentAttributes.size() ? "|" : "";
+		}
+		
+		/* Get all labels */			
+		attributeLabels = "";
+		for (int i = 0; i < antecedentLabels.size(); i++) {
+			attributeLabels += antecedentLabels.get(i);
+			attributeLabels += (i + 1) < antecedentLabels.size() ? "|" : "";
+		}
+		
+		/* Find attributes in string and adds to list */
+		List<String> antecedents = new ArrayList<String>();
+		pattern = "((" + attributeNames + ")=(" + attributeLabels + "))";
+		p = Pattern.compile(pattern);
+		m = p.matcher(antecedent);
+		while (m.find()) {
+			antecedents.add(m.group());
+		}
+		
+		/* Create the initial set of antecedents */
+		ICombinatoricsVector<String> antecedentSet = Factory.createVector(antecedents);
+		
+		/* Create an instance of the subset generator */
+		Generator<String> antecedentGen = Factory.createSubSetGenerator(antecedentSet);
+		
+		/* Logical operators for filter (OR/AND) */
+		String logicalOperator = "";
+		
+		/* A generated subset */
+		ICombinatoricsVector<String> subSet;
+		
+		/* Loop list in reverse order */
+		for (int i = (int) antecedentGen.getNumberOfGeneratedObjects() - 1; i > 0; i--) {
 			
-			comboFilterComponent.setText("");
-	
-			String[] attributeSplit;
-			String attributeName;
-			String attributeLabel;
+			/* Current subset */
+			subSet = antecedentGen.generateAllObjects().get(i);
 			
-			String attributeNames;
-			String attributeLabels;
-			
-			String pattern;
-			Pattern p;
-			Matcher m;
-			
-			/* Get values of selected row */
-			JTable target = (JTable) e.getSource();
-			int row = target.getSelectedRow();
-			String antecedent = (String) target.getValueAt(row, 0);
-			String consequent = (String) target.getValueAt(row, 1);
-			
-			/* Get the lists of attributes and labels from antecedent */
-			List<FilterMapAttribute> antecedentAttributes = antecedentMap.getAttributes();
-			List<String> antecedentLabels = antecedentMap.getUniqueLabels();
-			
-			/* Get all attributes */
-			attributeNames = "";
-			for (int i = 0; i < antecedentAttributes.size(); i++) {
-				attributeNames += antecedentAttributes.get(i).getAttribute();
-				attributeNames += (i + 1) < antecedentAttributes.size() ? "|" : "";
-			}
-			
-			/* Get all labels */			
-			attributeLabels = "";
-			for (int i = 0; i < antecedentLabels.size(); i++) {
-				attributeLabels += antecedentLabels.get(i);
-				attributeLabels += (i + 1) < antecedentLabels.size() ? "|" : "";
-			}
-			
-			/* Find attributes in string and adds to list */
-			List<String> antecedents = new ArrayList<String>();
-			pattern = "((" + attributeNames + ")=(" + attributeLabels + "))";
-			p = Pattern.compile(pattern);
-			m = p.matcher(antecedent);
-			while (m.find()) {
-				antecedents.add(m.group());
-			}
-			
-			/* Create the initial set of antecedents */
-			ICombinatoricsVector<String> antecedentSet = Factory.createVector(antecedents);
-			
-			/* Create an instance of the subset generator */
-			Generator<String> antecedentGen = Factory.createSubSetGenerator(antecedentSet);
-			
-			/* Logical operators for filter (OR/AND) */
-			String logicalOperator = "";
-			
-			/* A generated subset */
-			ICombinatoricsVector<String> subSet;
-			
-			/* Loop list in reverse order */
-			for (int i = (int) antecedentGen.getNumberOfGeneratedObjects() - 1; i > 0; i--) {
-				
-				/* Current subset */
-				subSet = antecedentGen.generateAllObjects().get(i);
-				
-				/* Loop subset to add its attributes in filter */
-				for (int j = 0; j < subSet.getSize(); j++) {
-					
-					/* Get attribute and label */
-					attributeSplit = subSet.getValue(j).split("=", 2);
-					attributeName = attributeSplit[0];
-					attributeLabel = attributeSplit[1];
-					
-					/* Each subset begins with a "OR" filter
-					 * for grouping its attributes in filter.
-					 */
-					logicalOperator = j == 0 ? "OR" : "AND";
-					
-					/* Adds filter */
-					addFilter("X", "EQUALS", logicalOperator, attributeName, attributeLabel);
-					
-				}
-			}
-			
-			/* Get the lists of attributes and labels from consequent */
-			List<FilterMapAttribute> consequentAttributes = antecedentMap.getAttributes();
-			List<String> consequentLabels = antecedentMap.getUniqueLabels();
-			
-			/* Get all attributes */
-			attributeNames = "";
-			for (int i = 0; i < consequentAttributes.size(); i++) {
-				attributeNames += consequentAttributes.get(i).getAttribute();
-				attributeNames += (i + 1) < consequentAttributes.size() ? "|" : "";
-			}
-			
-			/* Get all labels */			
-			attributeLabels = "";
-			for (int i = 0; i < consequentLabels.size(); i++) {
-				attributeLabels += consequentLabels.get(i);
-				attributeLabels += (i + 1) < consequentLabels.size() ? "|" : "";
-			}
-			
-			/* Find attributes in string and adds to filter */
-			pattern = "((" + attributeNames + ")=(" + attributeLabels + "))";
-			p = Pattern.compile(pattern);
-			m = p.matcher(consequent);
-			while (m.find()) {
+			/* Loop subset to add its attributes in filter */
+			for (int j = 0; j < subSet.getSize(); j++) {
 				
 				/* Get attribute and label */
-				attributeSplit = m.group().split("=", 2);
+				attributeSplit = subSet.getValue(j).split("=", 2);
 				attributeName = attributeSplit[0];
 				attributeLabel = attributeSplit[1];
 				
+				/* Each subset begins with a "OR" filter
+				 * for grouping its attributes in filter.
+				 */
+				logicalOperator = j == 0 ? "OR" : "AND";
+				
 				/* Adds filter */
-				addFilter("Y", "EQUALS", logicalOperator, attributeName, attributeLabel);
+				addFilter("X", "EQUALS", logicalOperator, attributeName, attributeLabel);
 				
 			}
+		}
+		
+		/* Get the lists of attributes and labels from consequent */
+		List<FilterMapAttribute> consequentAttributes = antecedentMap.getAttributes();
+		List<String> consequentLabels = antecedentMap.getUniqueLabels();
+		
+		/* Get all attributes */
+		attributeNames = "";
+		for (int i = 0; i < consequentAttributes.size(); i++) {
+			attributeNames += consequentAttributes.get(i).getAttribute();
+			attributeNames += (i + 1) < consequentAttributes.size() ? "|" : "";
+		}
+		
+		/* Get all labels */			
+		attributeLabels = "";
+		for (int i = 0; i < consequentLabels.size(); i++) {
+			attributeLabels += consequentLabels.get(i);
+			attributeLabels += (i + 1) < consequentLabels.size() ? "|" : "";
+		}
+		
+		/* Find attributes in string and adds to filter */
+		pattern = "((" + attributeNames + ")=(" + attributeLabels + "))";
+		p = Pattern.compile(pattern);
+		m = p.matcher(consequent);
+		while (m.find()) {
 			
-			applyMetricsFilter();
+			/* Get attribute and label */
+			attributeSplit = m.group().split("=", 2);
+			attributeName = attributeSplit[0];
+			attributeLabel = attributeSplit[1];
+			
+			/* Adds filter */
+			addFilter("Y", "EQUALS", "AND", attributeName, attributeLabel);
 			
 		}
+		
+		applyMetricsFilter();
 		
 	}
 
@@ -1921,7 +1940,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 					List<?> sortKeys = e.getSource().getSortKeys();
 									
 					if (sortKeys.size() > 0) {
-						
+												
 						RowSorter.SortKey key = (SortKey) sortKeys.get(0);
 						int keyColumn = key.getColumn();
 						
@@ -1986,7 +2005,8 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 					roundedValue = weka.core.Utils.roundDouble(metricValue, 2);
 					row.add(roundedValue);
 				} catch (Exception e) {
-					e.printStackTrace();
+					log.statusMessage("FAILED! See log.");
+					log.logMessage(e.getMessage());
 				}
 			}
 			

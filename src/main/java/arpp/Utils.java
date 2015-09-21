@@ -2,9 +2,12 @@ package arpp;
 
 import java.awt.Component;
 import java.awt.Container;
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -104,9 +107,21 @@ public class Utils {
 		
 	}
 	
-	public static String getVersion() {
+	/**
+	 * Get plugin version
+	 * 
+	 * @throws FileNotFoundException 
+	 */
+	public static String getVersion() throws FileNotFoundException {
 		
-		return "0-4-0";
+		String version = "";
+		
+		File file = new File("src/main/java/arpp/version.txt");
+		Scanner scanner = new Scanner(file);
+		version = scanner.nextLine();
+		scanner.close();
+		
+		return version;
 		
 	}
 
