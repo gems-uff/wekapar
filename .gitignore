@@ -1,3 +1,6 @@
 /tcc.jar
 /associationRulesPostProcessing.jar
 /target/
+/dist/
+/doc/
+/lib/

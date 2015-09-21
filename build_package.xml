@@ -171,11 +171,14 @@
     </delete>
     <copy file="Description.props"
           todir="${dist}/${package}"/>
+    <copy file="Explorer.props"
+          todir="${dist}/${package}"/>
     <mkdir dir="${dist}/${package}/lib"/>
     <copy todir="${dist}/${package}/lib" >
        <fileset dir="${lib}">
          <include name="*.jar"/>
          <include name="*.zip"/>
+       	 <exclude name="weka-dev-3.7.13.jar"/>
        </fileset>
     </copy>
     <mkdir dir="${dist}/${package}/doc"/>
@@ -238,18 +241,17 @@
     </jar>
   </target>
 
-<!-- Clean -->
+  <!-- Writes $release version number to weka/core/version.txt -->    
+  <target name="set_version">
+    <echo message="${release}" file="${src}/arp/version.txt"/>
+    <echo message="${release}" file="${build}/classes/arp/version.txt"/>
+  </target>
+
+  <!-- Clean -->
   <target name="clean" depends="init_all"
    description="Removes the build, dist and reports directories">
     <!-- Delete the ${build} and ${dist} directory trees -->
     <delete dir="${build}"/>
     <delete dir="${dist}"/>
-  </target>
-
-  <target name="superclean" depends="clean"
-   description="Clean plus removes source trees! and doc directories">
-  <!-- WARNING, this deletes the source and doc directories -->
-    <delete dir="${src}"/>
-    <delete dir="${doc}"/>
   </target>
 </project>
