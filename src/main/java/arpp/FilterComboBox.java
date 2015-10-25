@@ -7,7 +7,7 @@ import javax.swing.JComboBox;
  * 
  * @author Daniel Silva (danielnsilva@gmail.com)
  */
-public class FilterComboBox extends JComboBox<Object> {
+public class FilterComboBox extends JComboBox {
 
 	/**
 	 * 

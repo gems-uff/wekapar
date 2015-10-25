@@ -1,4 +1,4 @@
-package arpp;
+package arpp.table;
 
 import java.awt.Component;
 
@@ -6,7 +6,7 @@ import javax.swing.JLabel;
 import javax.swing.JTable;
 import javax.swing.table.DefaultTableCellRenderer;
 
-public class RulesCellRenderer extends DefaultTableCellRenderer {
+public class RulesTableCellRenderer extends DefaultTableCellRenderer {
 
 	/** for serialization */
 	private static final long serialVersionUID = -8786887441345389283L;

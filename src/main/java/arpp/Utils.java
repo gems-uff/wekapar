@@ -1,7 +1,5 @@
 package arpp;
 
-import java.awt.Component;
-import java.awt.Container;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
@@ -83,27 +81,6 @@ public class Utils {
 		List<Double> list = getColumnValues(table, colIndex);
 		
 		return !list.isEmpty() ? Collections.min(list) : 0;
-		
-	}
-
-	
-	/**
-	 * Enable/disable a set of {@link Component} in a {@link Container}.
-	 * 
-	 * @param container the {@link Container} component
-	 * @param enabled true/false for enable or disable each component
-	 */
-	public static void setContainerEnabled(Container container, boolean enabled) {
-		
-		for (Component c : container.getComponents()) {
-			/* In filter for metrics checkboxes will control respective spinners */
-			if (!(c instanceof MetricSpinner)) {
-				c.setEnabled(enabled);
-				if (c instanceof Container) {
-					setContainerEnabled((Container) c, enabled);
-				}
-			}
-		}
 		
 	}
 	

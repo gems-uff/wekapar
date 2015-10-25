@@ -54,5 +54,13 @@ public class FilterMapAttribute implements Serializable {
 	public boolean equals(Object o) {
 		return attribute.equals(((FilterMapAttribute) o).attribute);
 	}
+	
+	/* (non-Javadoc)
+	 * @see java.lang.Object#toString(java.lang.Object)
+	 */
+	@Override
+	public String toString() {
+		return getAttribute();
+	}
 
 }

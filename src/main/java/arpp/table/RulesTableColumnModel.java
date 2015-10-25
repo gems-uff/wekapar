@@ -1,4 +1,4 @@
-package arpp;
+package arpp.table;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -6,7 +6,6 @@ import java.util.Map;
 import javax.swing.table.DefaultTableColumnModel;
 import javax.swing.table.TableColumn;
 
-// TODO: Wrong scale for progress cell renderer after hide/show column
 public class RulesTableColumnModel extends DefaultTableColumnModel {
 	
 	/** for serialization */

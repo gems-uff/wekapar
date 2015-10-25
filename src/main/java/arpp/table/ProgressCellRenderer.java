@@ -1,13 +1,16 @@
-package arpp;
+package arpp.table;
 
 import java.awt.Color;
 import java.awt.Component;
+import java.text.DecimalFormat;
 
 import javax.swing.BorderFactory;
 import javax.swing.JProgressBar;
 import javax.swing.JTable;
 import javax.swing.plaf.basic.BasicProgressBarUI;
 import javax.swing.table.TableCellRenderer;
+
+import arpp.Utils;
 
 public class ProgressCellRenderer extends JProgressBar implements TableCellRenderer {
 
@@ -21,6 +24,12 @@ public class ProgressCellRenderer extends JProgressBar implements TableCellRende
 		double maxValue = Utils.getColumnMaxValue(table, column);
 		int progress = (int) Math.round((((Double) value / maxValue)) * 100);
         setValue(progress);
+        
+		DecimalFormat formatter = ((RulesTableModel) table.getModel()).getFormatter();
+		if (value instanceof String) {
+			value = Double.valueOf((String) value);
+		}
+		value = formatter.format((Number)value);
         setString(value.toString());
         
         setStringPainted(true);

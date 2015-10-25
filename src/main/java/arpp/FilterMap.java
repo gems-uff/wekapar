@@ -68,5 +68,11 @@ public class FilterMap {
 		}
 		
 	}
+	
+	public boolean removeAll() {
+
+		return attributes.removeAll(attributes);
+		
+	}
 
 }

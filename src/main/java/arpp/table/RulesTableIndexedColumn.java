@@ -1,4 +1,4 @@
-package arpp;
+package arpp.table;
 
 import javax.swing.table.TableColumn;
 

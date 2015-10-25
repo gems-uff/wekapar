@@ -10,6 +10,7 @@
 -->
 
   <!-- set global properties for this build -->
+	<echo message="Ant running on Java version ${ant.java.version}"/>
   <property name="src" value="src/main/java"/>
   <property name="src-test" value="src/test/java"/>
   <property name="lib" value="lib" />
@@ -209,7 +210,7 @@
          <include name="src/**/*.matrix"/>
        </fileset>
     </copy>
-    <zip destfile="${dist}/${package}.zip" 
+    <zip destfile="${dist}/${package}-${release}.zip" 
       basedir="${dist}/${package}">
     </zip>
   </target>
@@ -243,8 +244,8 @@
 
   <!-- Writes $release version number to weka/core/version.txt -->    
   <target name="set_version">
-    <echo message="${release}" file="${src}/arp/version.txt"/>
-    <echo message="${release}" file="${build}/classes/arp/version.txt"/>
+    <echo message="${release}" file="${src}/arpp/version.txt"/>
+    <echo message="${release}" file="${build}/classes/arpp/version.txt"/>
   </target>
 
   <!-- Clean -->
