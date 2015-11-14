@@ -992,7 +992,6 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		
 	}
 
-	@SuppressWarnings("unchecked")
 	private void open() {
 		
 		if (thread == null) {
@@ -1711,7 +1710,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		/* Get all labels */
 		attributeLabels = "";
 		for (Iterator<String> i = labels.iterator(); i.hasNext();) {
-			attributeLabels += i.next();
+			attributeLabels += Pattern.quote(i.next().toString());
 			attributeLabels += i.hasNext() ? "|" : "";
 		}
 		
