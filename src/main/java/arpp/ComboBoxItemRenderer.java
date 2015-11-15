@@ -20,7 +20,6 @@ public class ComboBoxItemRenderer extends BasicComboBoxRenderer {
 	/* (non-Javadoc)
 	 * @see javax.swing.plaf.basic.BasicComboBoxRenderer#getListCellRendererComponent(javax.swing.JList, java.lang.Object, int, boolean, boolean)
 	 */
-	@SuppressWarnings("rawtypes")
 	public Component getListCellRendererComponent(JList list, Object value,
 			int index, boolean isSelected, boolean cellHasFocus) {
 		super.getListCellRendererComponent(list, value, index, isSelected,

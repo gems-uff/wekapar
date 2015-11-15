@@ -13,12 +13,16 @@ import javax.swing.JTable;
 import javax.swing.table.TableColumn;
 import javax.swing.table.TableModel;
 
+import weka.core.SystemInfo;
+
 /**
  * A collection of some useful methods.
  * 
  * @author Daniel Silva (danielnsilva@gmail.com)
  */
 public class Utils {
+	
+	public static double JAVA_CLASS_VERSION = getJavaClassVersion();
 	
 	/**
 	 * Searches for a {@link Pattern} in {@link String} <code>s</code>
@@ -98,6 +102,19 @@ public class Utils {
 		version = scanner.nextLine();
 		scanner.close();
 		
+		return version;
+		
+	}
+	
+	/**
+	 * Get java class version
+	 */	
+	private static double getJavaClassVersion() {
+		
+		SystemInfo sysInfo = new SystemInfo();
+		String classVersion = sysInfo.getSystemInfo().get("java.class.version");
+		double version = Double.parseDouble(classVersion);
+				
 		return version;
 		
 	}

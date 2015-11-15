@@ -1543,6 +1543,15 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 	 * @param row the selected row in target
 	 */
 	private void filterSubSet(JTable target, int row) {
+		
+		/*
+		 * Dmytro Paukov's combinatoricslib used in
+		 * this method supports only Java 7 or newer.
+		 * */
+		if (Utils.JAVA_CLASS_VERSION < 51) {
+			JOptionPane.showMessageDialog(this, "This feature is only compatible with Java 7 or later!", "ERROR", JOptionPane.ERROR_MESSAGE);
+			return;
+		}
 	
 		comboFilterComponent.setText("");
 
