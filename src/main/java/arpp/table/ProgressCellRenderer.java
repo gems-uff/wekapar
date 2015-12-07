@@ -16,23 +16,17 @@ public class ProgressCellRenderer extends JProgressBar implements TableCellRende
 
 	/** for serialization */
 	private static final long serialVersionUID = -5466571908339798798L;
-
-	@Override
-	public Component getTableCellRendererComponent(JTable table, Object value,
-			boolean isSelected, boolean hasFocus, int row, int column) {
+	
+	/** Max value of column */
+	private double maxValue;
 		
-		double maxValue = Utils.getColumnMaxValue(table, column);
-		int progress = (int) Math.round((((Double) value / maxValue)) * 100);
-        setValue(progress);
-        
-		DecimalFormat formatter = ((RulesTableModel) table.getModel()).getFormatter();
-		if (value instanceof String) {
-			value = Double.valueOf((String) value);
-		}
-		value = formatter.format((Number)value);
-        setString(value.toString());
-        
-        setStringPainted(true);
+	public ProgressCellRenderer(JTable table, int column) {
+
+		super();
+		
+		maxValue = Utils.getColumnMaxValue(table, column);
+		
+		setStringPainted(true);
         setOpaque(true);
         setBorder(BorderFactory.createEmptyBorder(1, 1, 1, 1));
         setBackground(Color.WHITE);
@@ -44,6 +38,22 @@ public class ProgressCellRenderer extends JProgressBar implements TableCellRende
         		return Color.BLACK;
         	}
         });
+		
+	}
+
+	@Override
+	public Component getTableCellRendererComponent(JTable table, Object value,
+			boolean isSelected, boolean hasFocus, int row, int column) {
+		
+		int progress = (int) Math.round((((Double) value / maxValue)) * 100);
+        setValue(progress);
+        
+		DecimalFormat formatter = ((RulesTableModel) table.getModel()).getFormatter();
+		if (value instanceof String) {
+			value = Double.valueOf((String) value);
+		}
+		value = formatter.format((Number)value);
+        setString(value.toString());
         
         return this;
         

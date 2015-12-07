@@ -2226,13 +2226,11 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 												
 						RowSorter.SortKey key = (SortKey) sortKeys.get(0);
 						int keyColumn = key.getColumn();
-						
-						// TODO: Too slow performance when scrolling table with 'ProgresCellRenderer' enabled.
 						String columnName = tableModel.getColumnName(keyColumn);
 						if (columnModel.hasColumn(columnName)) {
 							int columnIndex = columnModel.getColumnIndex(columnName);
 							if (tableModel.getColumnClass(columnIndex) == Double.class) {
-								columnModel.getColumn(columnIndex).setCellRenderer(new ProgressCellRenderer());
+								columnModel.getColumn(columnIndex).setCellRenderer(new ProgressCellRenderer(table, columnIndex));
 							}
 						}
 						
