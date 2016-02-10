@@ -96,7 +96,7 @@ import arpp.FilterMap;
 import arpp.FilterMapAttribute;
 import arpp.MetricSpinner;
 import arpp.Utils;
-import arpp.table.DecimalFormatCellRenderer;
+import arpp.table.DecimalCellRenderer;
 import arpp.table.ProgressCellRenderer;
 import arpp.table.RulesTable;
 import arpp.table.RulesTableCellRenderer;
@@ -130,12 +130,6 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		
 	/** The destination for log/status messages */
 	protected static Logger log = new SysErrLog();
-
-	/** Component where rules are loaded */
-	protected static RulesTable table;
-	
-	/** For sorting and filtering */
-	protected static TableRowSorter<TableModel> sorter;
 	
 	/** A list of filter's strings used by parser */
 	protected static List<String> parseFilterList;
@@ -158,37 +152,58 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 	/** A label to display the total number of filtered rules */
 	protected static JLabel lblFilteredRulesValue;
 	
-	/** Component to select logical operator to be used in filter */
+	/** Component to select the logical operator to be used in filter */
 	protected static JComboBox comboLogicalOperator;
 	
 	/** Component to select antecedent or consequent column in which filter will be applied */
 	protected static JComboBox comboTableColumn;
 	
-	/**  */
+	/** Component to select the comparison type to be used in filter  */
 	protected static JComboBox comboComparisonType;
 	
+	/** Component to select an attribute of a rule to be used in filter */
 	protected static JComboBox comboAttribute;
 	
+	/** Component to select a label of an attribute to be used in filter */
 	protected static JComboBox comboLabel;
 
+	/** The {@link JButton} to add a criteria to filter */
 	protected static JButton btnAdd;
 	
+	/** Component to store a list of recently applied filters */
 	protected static FilterComboBox comboFilter = new FilterComboBox();
 	
+	/** The editor for current filter */
 	protected static JTextField comboFilterComponent = (JTextField) comboFilter.getEditor().getEditorComponent();
 	
+	/** The {@link JButton} to apply a filter to data */
 	protected static JButton btnApply;
 	
+	/** The {@link JButton} to clear the applied filter */
 	protected static JButton btnClear;
+	
+	/** The main {@link JPanel} */
 	private static JPanel rulesPanel;
+	
+	/** Just a {@link JPanel} to help with layout */
+	private JPanel panel;
+	
+	/** The {@link JPanel} to display the command buttons */
 	private JPanel buttonsPanel;
+	
+	/** The {@link JPanel} to display the filtering components */
 	protected JPanel filterPanel;
-	protected JPanel tablePanel;
+	
+	/** The {@link JButton} to save current work */
 	protected static JButton btnSave;
+	
+	/** The {@link JButton} to open a previously saved work */
 	private JButton btnOpen;
+	
+	/** The {@link JButton} to export data */
 	protected static JButton btnExport;
 
-	/** the association rules */
+	/** The association rules */
 	private static AssociationRules associationRules;
 	
 	/** The file chooser for save/open rules and apply filters. */
@@ -196,6 +211,8 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 	
 	/** The file chooser for export rules. */
 	private JFileChooser fileChooserExport = new JFileChooser(new File(System.getProperty("user.dir")));
+	
+	/** The {@link JPanel} to display the metric's filtering components */
 	private static JPanel metricsFilterPanel;
 	
 	/** JCheckBox for metric Support */
@@ -236,24 +253,41 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 
 	/** Reset metric's minimum values */
 	private static JButton btnResetMetric;
-	private JPanel panel;
+	
+	/** The {@link JPanel} for filtering rules */
+	private JPanel rulesFilterPanel;
+	
 	private JLabel lblLogicalOperator;
 	private JLabel lblXy;
 	private JLabel lblComparisonType;
 	private JLabel lblAttribute;
 	private JLabel lblLabel;
-	private JPanel rulesFilterPanel;
 	
+	/** Listener for metric spinner components */
 	private static ChangeListener metricChangeListener;
+	
+	/** The {@link JPanel} for metric's command buttons */
 	private JPanel metricButtonsPanel;
+	
+	/** The {@link JPanel} to display the table with association rules and its metrics */
+	protected JPanel tablePanel;
+
+	/** Component where rules are loaded */
+	protected static RulesTable table;
+	
+	/** For sorting and filtering */
+	protected static TableRowSorter<TableModel> sorter;
+	
 	private JLabel lblDisplaying;
 	private JLabel lblOf;
 	private JLabel lblRules;
-	private static DecimalSpinner spinDecimal;
 	private JLabel lblDecimalPlaces;
 	
 	/** Cell renderer for columns with numeric values */
-	private static DecimalFormatCellRenderer decimalCellRenderer = new DecimalFormatCellRenderer();
+	private static DecimalCellRenderer decimalCellRenderer = new DecimalCellRenderer();
+	
+	/** Select number of decimal places to format cell's values */
+	private static DecimalSpinner spinDecimal;
 	
 	/**
 	 * Create the postprocess panel.
@@ -263,7 +297,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		setLayout(new BorderLayout(0, 0));
 		setFocusable(true);
 		
-		/* Set filter to CSV files when exporting rules */
+		/* Set extesion filter to CSV files when exporting rules */
 		FileFilter fileFilter = new FileNameExtensionFilter("CSV file: comma separated files", new String[] {"csv"});
 		fileChooserExport.addChoosableFileFilter(fileFilter);
 		fileChooserExport.setFileFilter(fileFilter);
@@ -410,7 +444,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		rulesFilterPanel.add(comboTableColumn, gbc_comboTableColumn);
 		comboTableColumn.setEnabled(false);
 		comboTableColumn.addItemListener(new ItemListener() {
-			public void itemStateChanged(ItemEvent arg0) {
+			public void itemStateChanged(ItemEvent e) {
 				if (comboTableColumn.getSelectedIndex() > -1) {
 					comboAttribute.removeAllItems();
 					int key = (Integer) ((ComboBoxItem) comboTableColumn.getSelectedItem()).getKey();
@@ -706,7 +740,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 				
 				MetricSpinner spinner = (MetricSpinner) c;
 				
-				/* Set listeners for spinners to filter minimum metric values */
+				/* Set listeners for spinners */
 				spinner.addChangeListener(metricChangeListener);
 				
 			}
@@ -818,6 +852,10 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		
 	}
 	
+	/**
+	 * This method disables the button for apllying filter and the component for
+	 * selecting logical operator when the filter editor is empty.
+	 */
 	private void onComboFilterStateChanged() {
 
 		boolean isEmpty = comboFilterComponent.getText().isEmpty();
@@ -826,6 +864,10 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		
 	}
 
+	/**
+	 * Set enabled property to true for "apply" and "reset" buttons in metrics
+	 * filter.
+	 */
 	private static void onMetricValueChange() {
 		
 		btnApplyMetric.setEnabled(true);
@@ -834,6 +876,14 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 	}
 
 	// TODO: Getting thread busy message when selecting/deselecting a metric
+	// TODO: On click twice gets thread busy message but still hide column and when click again
+	//		get error message because column is hidden.
+	/**
+	 * This method must be called when a {@link JCheckBox} component is clicked
+	 * to enable or disable respective column in table and re-apply filter.
+	 * 
+	 * @param e the action event object
+	 */
 	private static void onMetricVisibilityChange(final ActionEvent e) {
 	
 		if (thread == null) {
@@ -888,6 +938,13 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		
 	}
 
+	/**
+	 * This method must be called when a {@link JCheckBox} component changes its
+	 * "selected" property to enable or disable respective {@link JSpinner}
+	 * component.
+	 * 
+	 * @param e the property change event object
+	 */
 	private static void onMetricPropertyChange(PropertyChangeEvent e) {
 	
 		JCheckBox chkbx = (JCheckBox) e.getSource();
@@ -900,6 +957,10 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		
 	}
 
+	/**
+	 * Exports the data to a file in CSV format. This method considers only
+	 * visible data. So hidden lines or columns will not be exported.
+	 */
 	private void exportToCsv() {
 		
 		if (thread == null) {
@@ -992,6 +1053,9 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		
 	}
 
+	/**
+	 * Loads a previously saved file.
+	 */
 	private void open() {
 		
 		if (thread == null) {
@@ -1048,6 +1112,10 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		
 	}
 
+	/**
+	 * Saves data to a file. This method considers all data, including hidden
+	 * lines and columns, and apllied filters.
+	 */
 	private void save() {
 		
 		if (thread == null) {
@@ -1137,6 +1205,9 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		
 	}
 
+	/**
+	 * Adds a filter item to editor by getting selected options
+	 */
 	private void addFilter() {
 		
 		String column = ((ComboBoxItem) comboTableColumn.getSelectedItem()).getValue();
@@ -1150,11 +1221,13 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 	}
 
 	/**
-	 * @param column
-	 * @param comparisonOperator
-	 * @param logicalOperator
-	 * @param attribute
-	 * @param label
+	 * Adds a filter item to editor
+	 * 
+	 * @param column a {@link String} representing the column
+	 * @param comparisonOperator the comparison operator
+	 * @param logicalOperator the logical operator
+	 * @param attribute the attribute name
+	 * @param label the label for attribute
 	 */
 	private void addFilter(String column, String comparisonOperator, String logicalOperator, String attribute, String label) {
 
@@ -1165,7 +1238,12 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		String filter = "";
 		boolean found = false;
 
+		/*
+		 * The pattern for a filter item begins with the string representation
+		 * of the column
+		 */
 		filter += column;
+		
 		if (comparisonOperator.equals("EQUALS")) {
 			p = Pattern.compile(".*("+column+"\\[\\^.*?\\$\\])");
 		    m = p.matcher(componentText);
@@ -1178,9 +1256,22 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		} else {
 			filter += "[";
 		}
+		
 	    filter += found && logicalOperator.equals("AND") ? "|" : "";
+	    
+	    /* At this point concatanate the attribute name */
 		filter += attribute;
+		
+		/*
+		 * Concatenate the label only if a valid option has been selected. The
+		 * "All" option means any label.
+		 */
 		filter += (!label.equals("All")) ? "=" + label : "";
+		
+		/*
+		 * All labels must be concatenated in case of selecting the "EQUALS"
+		 * operator.
+		 */
 		if (label.equals("All") && comparisonOperator.equals("EQUALS")) {
 			allLabels = "";
 			allLabels += "=(";
@@ -1192,18 +1283,24 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 			allLabels += ")";
 			filter += allLabels;
 		}
+		
 		filter += found && logicalOperator.equals("AND") ? "( |)" : "";
+		
 		if (found && logicalOperator.equals("AND")) {
+			
 			int lastIndex = componentText.indexOf(m.group(1));
 			int start = componentText.indexOf("^", lastIndex - 1);
 			int end = componentText.indexOf("$", lastIndex);
 			String content = componentText.substring(start+1, end);
 			boolean contains = false;
+			
 			if (label.equals("All")) {
 				contains = content.contains(attribute + allLabels);
 			} else {
 				contains = content.contains(attribute + "=" + label);
 			}
+			
+			/* Insert in editor only if not exists yet */
 			if (!contains) {
 				content = content.replaceAll("\\{(.*?)\\}", "");
 				String[] splitContent = content.split("\\( \\|\\)\\|");
@@ -1216,12 +1313,16 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 				}
 				comboFilterComponent.setText(new StringBuilder(componentText).replace(start+1, end, content).toString());
 			}
+			
 		} else {
 			
 			filter += comparisonOperator.equals("EQUALS") ? "$]" : "]";
 			
+			/* Insert in editor only if not exists yet */
 			if (!componentText.contains(filter)) {
+				
 				if (!componentText.isEmpty()) {
+					
 					if (!componentText.contains(column + "[")) {
 						String text = "";
 						if (column.equals("X")) {
@@ -1241,8 +1342,11 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 					    	comboFilterComponent.setText(componentText + filter);
 					    }
 					}
+					
 				} else {
+					
 					comboFilterComponent.setText(componentText + filter);
+					
 				}
 			
 			}
@@ -1255,41 +1359,46 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		
 	}
 
+	/**
+	 * Builds a {@link RowFilter} according to selected metrics minimum values.
+	 * 
+	 * @return the row filter object
+	 */
 	private static RowFilter<? super TableModel, ? super Integer> buildMetricsFilter() {
 			
-			RowFilter<Object, Object> rowFilter = RowFilter.regexFilter(".*");
-			List<RowFilter<Object, Object>> metricFilters = new ArrayList<RowFilter<Object, Object>>();
-			List<RowFilter<Object, Object>> metricFilter;
-			RowFilter<Object, Object> filterEqual;
-			RowFilter<Object, Object> filterAfter;
-			RulesTableColumnModel columnModel = (RulesTableColumnModel) table.getColumnModel();
-			MetricSpinner spinner;
-			String key;
-			double value;
-			int columnIndex;
-			
-			for (Map.Entry<String, JSpinner> entry : metricSpinnerMap.entrySet()) {
-				metricFilter = new ArrayList<RowFilter<Object, Object>>();
-				key = entry.getKey();
-				spinner = (MetricSpinner) entry.getValue();
-				value = (Double) spinner.getValue();
-				if (columnModel.hasColumn(key)) {
-					if (!spinner.isMinimumSelected()) {
-						columnIndex = table.getColumnModel().getColumnIndex(key);
-						filterEqual = RowFilter.numberFilter(ComparisonType.EQUAL, value, table.convertColumnIndexToModel(columnIndex));
-						filterAfter = RowFilter.numberFilter(ComparisonType.AFTER, value, table.convertColumnIndexToModel(columnIndex));
-						metricFilter.add(filterEqual);
-						metricFilter.add(filterAfter);
-						metricFilters.add(RowFilter.orFilter(metricFilter));
-					}
+		RowFilter<Object, Object> rowFilter = RowFilter.regexFilter(".*");
+		List<RowFilter<Object, Object>> metricFilters = new ArrayList<RowFilter<Object, Object>>();
+		List<RowFilter<Object, Object>> metricFilter;
+		RowFilter<Object, Object> filterEqual;
+		RowFilter<Object, Object> filterAfter;
+		RulesTableColumnModel columnModel = (RulesTableColumnModel) table.getColumnModel();
+		MetricSpinner spinner;
+		String key;
+		double value;
+		int columnIndex;
+		
+		for (Map.Entry<String, JSpinner> entry : metricSpinnerMap.entrySet()) {
+			metricFilter = new ArrayList<RowFilter<Object, Object>>();
+			key = entry.getKey();
+			spinner = (MetricSpinner) entry.getValue();
+			value = (Double) spinner.getValue();
+			if (columnModel.hasColumn(key)) {
+				if (!spinner.isMinimumSelected()) {
+					columnIndex = table.getColumnModel().getColumnIndex(key);
+					filterEqual = RowFilter.numberFilter(ComparisonType.EQUAL, value, table.convertColumnIndexToModel(columnIndex));
+					filterAfter = RowFilter.numberFilter(ComparisonType.AFTER, value, table.convertColumnIndexToModel(columnIndex));
+					metricFilter.add(filterEqual);
+					metricFilter.add(filterAfter);
+					metricFilters.add(RowFilter.orFilter(metricFilter));
 				}
 			}
-			
-			rowFilter = RowFilter.andFilter(metricFilters);
-			
-			return rowFilter;
-			
 		}
+		
+		rowFilter = RowFilter.andFilter(metricFilters);
+		
+		return rowFilter;
+		
+	}
 
 	/**
 	 * Builds RowFilter joining each filter from list.
@@ -1512,21 +1621,23 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		String substring;
 		String quoted;
 		StringBuilder buildRegex;
-		
+				
 		for (String label : labels) {
-			p = Pattern.compile("(=|\\|)\\Q" + label + "\\E(\\(|\\$|\\])");
+			p = Pattern.compile("(=|\\||\\()\\Q" + label + "\\E(\\)|\\$|\\||$)");
 			m = p.matcher(regexString);
 			while (m.find()) {
 				group = m.group();
 				beginIndex = regexString.indexOf(group) + 1;
 				endIndex = beginIndex + group.length() - 2;
 				substring = regexString.substring(beginIndex, endIndex);
+				System.out.println(substring);
 				quoted = Pattern.quote(substring);
+				System.out.println(quoted);
 				buildRegex = new StringBuilder(regexString);
 				regexString = buildRegex.replace(beginIndex, endIndex, quoted).toString();
 			}
 		}
-		
+						
 		int index = columnName.equals("X") ? 0 : 1;
 				
 		return RowFilter.regexFilter(regexString, index);
@@ -1820,6 +1931,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 								btnApply.setEnabled(true);
 								log.statusMessage("FAILED! See log.");
 								log.logMessage(e.getMessage());
+								e.printStackTrace();
 							}
 							thread = null;
 							if (log instanceof TaskLogger) {
@@ -1968,6 +2080,9 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		
 	}
 	
+	/**
+	 * Apply filter for rules and metrics
+	 */
 	@SuppressWarnings("unchecked")
 	private static void applyFilter() {
 
@@ -2121,10 +2236,8 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		
 		String antecedent = "";
 		String consequent = "";
-//		double supportTemp;
 		double support;
 		double metricValue;
-//		double roundedValue;
 				
 		for (AssociationRule r : rulesList) {
 			
@@ -2143,8 +2256,6 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 			}
 	
 			/* Support */
-//			supportTemp = ((double) r.getTotalSupport()) / r.getTotalTransactions();
-//			support = weka.core.Utils.roundDouble(supportTemp, 2);
 			support = ((double) r.getTotalSupport()) / r.getTotalTransactions();
 			
 			/* List containing each column's content to be added to table */
@@ -2159,8 +2270,6 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 			for (String m: metrics) {
 				try {
 					metricValue = r.getNamedMetricValue(m);
-//					roundedValue = weka.core.Utils.roundDouble(metricValue, 2);
-//					row.add(roundedValue);
 					row.add(metricValue);
 				} catch (Exception e) {
 					log.statusMessage("FAILED! See log.");
@@ -2190,7 +2299,6 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		for (int i = 2; i < table.getColumnCount(); i++) {
 			
 			/* Set custom renderer for metric's cells */
-//			columnModel.getColumn(i).setCellRenderer(new DecimalFormatCellRenderer());
 			columnModel.getColumn(i).setCellRenderer(decimalCellRenderer);
 			
 			/* Set minimum size values for metric's columns */
@@ -2275,7 +2383,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 	}
 
 	/**
-	 * Stores the associaton rules
+	 * Sets the AssociationRules object
 	 * 
 	 * @param associationRules the rules
 	 * @return <code>true</code> if parameter has new value, <code>false</code> otherwise
@@ -2370,8 +2478,10 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		return "Load/Filter/Save associator output";
 	}
 
-	/* (non-Javadoc)
-	 * @see weka.gui.explorer.Explorer.LogHandler#setLog(weka.gui.Logger)
+	/**
+	 * Sets the Logger to receive informational messages
+	 * 
+	 * @param newLog the Logger that will now get info messages
 	 */
 	@Override
 	public void setLog(Logger newLog) {

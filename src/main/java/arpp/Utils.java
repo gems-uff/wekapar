@@ -16,12 +16,13 @@ import javax.swing.table.TableModel;
 import weka.core.SystemInfo;
 
 /**
- * A collection of some useful methods.
+ * A collection of some useful stuff.
  * 
  * @author Daniel Silva (danielnsilva@gmail.com)
  */
 public class Utils {
 	
+	/** The java class version */
 	public static double JAVA_CLASS_VERSION = getJavaClassVersion();
 	
 	/**

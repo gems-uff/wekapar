@@ -4,11 +4,21 @@ import javax.swing.JComponent;
 import javax.swing.JSpinner;
 import javax.swing.SpinnerNumberModel;
 
+/**
+ * An extended {@link JSpinner} to select metric values
+ * 
+ * @author Daniel Silva (danielnsilva@gmail.com)
+ */
 public class MetricSpinner extends JSpinner {
 	
 	/** for serialization */
 	private static final long serialVersionUID = -4269839150816724708L;
 	
+	/**
+	 * Sets a {@link NumberEditor} with support for two decimal places
+	 * 
+	 * @param editor Unused
+	 */
 	@Override
 	public void setEditor(JComponent editor) {
 
@@ -16,6 +26,9 @@ public class MetricSpinner extends JSpinner {
 		
 	}
 
+	/**
+	 * Resets to minimum value
+	 */
 	public void reset() {
 		
 		SpinnerNumberModel model = (SpinnerNumberModel) getModel();
@@ -24,19 +37,18 @@ public class MetricSpinner extends JSpinner {
 		
 	}
 	
+	/**
+	 * Checks if minimum value is selected
+	 * 
+	 * @return <code>true</code> if the minimum value is selected, <code>false</code> otherwise.
+	 */
 	public boolean isMinimumSelected() {
-		
-		boolean isMinimum = true;
-		
+				
 		SpinnerNumberModel spinModel = (SpinnerNumberModel) getModel();
 		double spinModelValue = (Double) spinModel.getValue();
 		double spinModelMin = (Double) spinModel.getMinimum();
 		
-		if (spinModelValue > spinModelMin) {
-			isMinimum = false;
-		}
-		
-		return isMinimum;
+		return (spinModelValue == spinModelMin);
 		
 	}
 

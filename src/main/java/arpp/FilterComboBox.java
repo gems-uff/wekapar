@@ -9,16 +9,13 @@ import javax.swing.JComboBox;
  */
 public class FilterComboBox extends JComboBox {
 
-	/**
-	 * 
-	 */
+	/** for serialization */
 	private static final long serialVersionUID = 1588653220496311641L;
 
 	/**
 	 * Adds item at first position in list
 	 * 
 	 * @param item the item to add
-	 * @see javax.swing.JComboBox#addItem(java.lang.Object)
 	 */
 	@Override
 	public void addItem(Object item) {
@@ -34,7 +31,6 @@ public class FilterComboBox extends JComboBox {
 	 * 
 	 * @param item the item to insert
 	 * @param index position where to insert the element
-	 * @see javax.swing.JComboBox#insertItemAt(java.lang.Object, int)
 	 */
 	@Override
 	public void insertItemAt(Object item, int index) {
