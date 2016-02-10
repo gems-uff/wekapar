@@ -98,7 +98,7 @@ public class Utils {
 		
 		String version = "";
 		
-		File file = new File("src/main/java/arpp/version.txt");
+		String file = new File("src/main/java/arpp/version.txt").getAbsolutePath();
 		Scanner scanner = new Scanner(file);
 		version = scanner.nextLine();
 		scanner.close();
