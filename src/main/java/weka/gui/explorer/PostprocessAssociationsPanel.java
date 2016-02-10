@@ -1077,12 +1077,21 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 						try {
 							
 							log.statusMessage("Reading file...");
+							
 							FileInputStream fis = new FileInputStream(file);
 							ObjectInputStream ois = new ObjectInputStream(fis);
+							
+							/* Skip plugin version */
+							ois.readObject();
+							
+							/* Load association rules */
 							associationRules = (AssociationRules) ois.readObject();
 							log.statusMessage("Loading rules...");
 							loadRules();
+							
+							/* Load list of applied filters */
 							comboFilter.setModel((ComboBoxModel) ois.readObject());
+							
 							ois.close();
 							log.statusMessage("OK");
 							
@@ -1136,9 +1145,15 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 											
 							FileOutputStream fos = new FileOutputStream(file);
 							ObjectOutputStream oos = new ObjectOutputStream(fos);
-							oos.writeObject(associationRules);
-							oos.writeObject(comboFilter.getModel());
+							
+							/* Plugin version */
 							oos.writeObject(Utils.getVersion());
+							
+							/* Association rules */
+							oos.writeObject(associationRules);
+							
+							/* List of applied filters */
+							oos.writeObject(comboFilter.getModel());
 							
 							/* Need to be reinitialized to prevent unexpected behavior from
 							 * JComboBox component after calling getModel method.
@@ -1623,16 +1638,14 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		StringBuilder buildRegex;
 				
 		for (String label : labels) {
-			p = Pattern.compile("(=|\\||\\()\\Q" + label + "\\E(\\)|\\$|\\||$)");
+			p = Pattern.compile("(=|\\||\\()\\Q" + label + "\\E(\\(|\\)|\\$|\\||$)");
 			m = p.matcher(regexString);
 			while (m.find()) {
 				group = m.group();
 				beginIndex = regexString.indexOf(group) + 1;
 				endIndex = beginIndex + group.length() - 2;
 				substring = regexString.substring(beginIndex, endIndex);
-				System.out.println(substring);
 				quoted = Pattern.quote(substring);
-				System.out.println(quoted);
 				buildRegex = new StringBuilder(regexString);
 				regexString = buildRegex.replace(beginIndex, endIndex, quoted).toString();
 			}
@@ -1781,7 +1794,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 			
 		}
 		
-		applyMetricsFilter();
+		applyRulesFilter();
 		
 	}
 	
@@ -1891,7 +1904,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 			
 		}
 		
-		applyMetricsFilter();
+		applyRulesFilter();
 		
 	}
 
@@ -1931,7 +1944,6 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 								btnApply.setEnabled(true);
 								log.statusMessage("FAILED! See log.");
 								log.logMessage(e.getMessage());
-								e.printStackTrace();
 							}
 							thread = null;
 							if (log instanceof TaskLogger) {
@@ -2372,7 +2384,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 	}
 
 	/**
-	 * Returns the AssociationRules object
+	 * Returns the {@link AssociationRules} object
 	 * 
 	 * @return the rules
 	 */
