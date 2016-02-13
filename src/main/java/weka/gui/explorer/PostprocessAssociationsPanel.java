@@ -975,7 +975,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
     		            	((TaskLogger) log).taskStarted();
     		            }
 						
-						log.statusMessage("Exporting rules...");
+						log.statusMessage("Saving to file...");
 						
 						StringBuilder csvData = new StringBuilder();
 						
@@ -1076,7 +1076,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 						
 						try {
 							
-							log.statusMessage("Reading file...");
+							log.statusMessage("Reading from file...");
 							
 							FileInputStream fis = new FileInputStream(file);
 							ObjectInputStream ois = new ObjectInputStream(fis);
@@ -1138,7 +1138,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
     		            	((TaskLogger) log).taskStarted();
     		            }
 						
-						log.statusMessage("Saving rules...");
+						log.statusMessage("Saving to file...");
 						
 						File file = fileChooserSaveOpen.getSelectedFile();
 						try {
