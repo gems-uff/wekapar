@@ -22,6 +22,8 @@ import java.awt.event.MouseEvent;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -1079,7 +1081,8 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 							log.statusMessage("Reading from file...");
 							
 							FileInputStream fis = new FileInputStream(file);
-							ObjectInputStream ois = new ObjectInputStream(fis);
+							BufferedInputStream bis = new BufferedInputStream(fis);
+							ObjectInputStream ois = new ObjectInputStream(bis);
 							
 							/* Skip plugin version */
 							ois.readObject();
@@ -1144,7 +1147,8 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 						try {
 											
 							FileOutputStream fos = new FileOutputStream(file);
-							ObjectOutputStream oos = new ObjectOutputStream(fos);
+							BufferedOutputStream bos = new BufferedOutputStream(fos);
+							ObjectOutputStream oos = new ObjectOutputStream(bos);
 							
 							/* Plugin version */
 							oos.writeObject(Utils.getVersion());
