@@ -38,4 +38,4 @@ URL=http://www.ufac.br
 #Related=
 
 # Dependencies
-Depends=weka (>=3.7.12)
+Depends=weka (>=3.7.8)
