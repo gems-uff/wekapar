@@ -158,7 +158,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 	protected static JComboBox comboLogicalOperator;
 	
 	/** Component to select antecedent or consequent column in which filter will be applied */
-	protected static JComboBox comboTableColumn;
+	protected static JComboBox comboRuleSide;
 	
 	/** Component to select the comparison type to be used in filter  */
 	protected static JComboBox comboComparisonType;
@@ -260,7 +260,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 	private JPanel rulesFilterPanel;
 	
 	private JLabel lblLogicalOperator;
-	private JLabel lblXy;
+	private JLabel lblRuleSide;
 	private JLabel lblComparisonType;
 	private JLabel lblAttribute;
 	private JLabel lblLabel;
@@ -391,15 +391,15 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		lblLogicalOperator.setAlignmentX(Component.RIGHT_ALIGNMENT);
 		lblLogicalOperator.setVerticalAlignment(SwingConstants.TOP);
 		
-		lblXy = new JLabel("Antecedent / Consequent:");
-		GridBagConstraints gbc_lblXy = new GridBagConstraints();
-		gbc_lblXy.anchor = GridBagConstraints.WEST;
-		gbc_lblXy.insets = new Insets(0, 0, 5, 5);
-		gbc_lblXy.gridx = 1;
-		gbc_lblXy.gridy = 0;
-		rulesFilterPanel.add(lblXy, gbc_lblXy);
-		lblXy.setAlignmentX(Component.CENTER_ALIGNMENT);
-		lblXy.setLabelFor(comboTableColumn);
+		lblRuleSide = new JLabel("Rule side:");
+		GridBagConstraints gbc_lblRuleSide = new GridBagConstraints();
+		gbc_lblRuleSide.anchor = GridBagConstraints.WEST;
+		gbc_lblRuleSide.insets = new Insets(0, 0, 5, 5);
+		gbc_lblRuleSide.gridx = 1;
+		gbc_lblRuleSide.gridy = 0;
+		rulesFilterPanel.add(lblRuleSide, gbc_lblRuleSide);
+		lblRuleSide.setAlignmentX(Component.CENTER_ALIGNMENT);
+		lblRuleSide.setLabelFor(comboRuleSide);
 		
 		lblComparisonType = new JLabel("Comparison Type:");
 		GridBagConstraints gbc_lblComparisonType = new GridBagConstraints();
@@ -437,19 +437,19 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		comboLogicalOperator.setEnabled(false);
 		comboLogicalOperator.setModel(new DefaultComboBoxModel(new String[] {"AND", "OR"}));
 		
-		comboTableColumn = new JComboBox();
+		comboRuleSide = new JComboBox();
 		GridBagConstraints gbc_comboTableColumn = new GridBagConstraints();
 		gbc_comboTableColumn.fill = GridBagConstraints.HORIZONTAL;
 		gbc_comboTableColumn.insets = new Insets(0, 0, 5, 5);
 		gbc_comboTableColumn.gridx = 1;
 		gbc_comboTableColumn.gridy = 1;
-		rulesFilterPanel.add(comboTableColumn, gbc_comboTableColumn);
-		comboTableColumn.setEnabled(false);
-		comboTableColumn.addItemListener(new ItemListener() {
+		rulesFilterPanel.add(comboRuleSide, gbc_comboTableColumn);
+		comboRuleSide.setEnabled(false);
+		comboRuleSide.addItemListener(new ItemListener() {
 			public void itemStateChanged(ItemEvent e) {
-				if (comboTableColumn.getSelectedIndex() > -1) {
+				if (comboRuleSide.getSelectedIndex() > -1) {
 					comboAttribute.removeAllItems();
-					int key = (Integer) ((ComboBoxItem) comboTableColumn.getSelectedItem()).getKey();
+					int key = (Integer) ((ComboBoxItem) comboRuleSide.getSelectedItem()).getKey();
 					for (FilterMapAttribute f : filterMap[key].getAttributes()) {
 						comboAttribute.addItem(new ComboBoxItem(f, f.getAttribute()));
 					}
@@ -1229,7 +1229,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 	 */
 	private void addFilter() {
 		
-		String column = ((ComboBoxItem) comboTableColumn.getSelectedItem()).getValue();
+		String column = ((ComboBoxItem) comboRuleSide.getSelectedItem()).getValue();
 		String comparisonOperator = (String) comboComparisonType.getSelectedItem();
 		String logicalOperator = (String) comboLogicalOperator.getSelectedItem();
 		String attribute = comboAttribute.getSelectedItem().toString();
@@ -1938,7 +1938,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 								applyFilter();
 								comboFilter.addItem(comboFilterComponent.getText().trim());
 								comboFilter.setSelectedIndex(0);
-								comboTableColumn.setSelectedIndex(0);
+								comboRuleSide.setSelectedIndex(0);
 								comboComparisonType.setSelectedIndex(0);
 								comboAttribute.setSelectedIndex(0);
 								comboLabel.setSelectedIndex(0);
@@ -2371,9 +2371,9 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		lblFilteredRulesValue.setText(String.valueOf(table.getRowCount()));
 		
 		/* Initializes attribute's component */
-		comboTableColumn.removeAllItems();
-		comboTableColumn.addItem(new ComboBoxItem(0, "Antecedent (X)", "X"));
-		comboTableColumn.addItem(new ComboBoxItem(1, "Consequent (Y)", "Y"));
+		comboRuleSide.removeAllItems();
+		comboRuleSide.addItem(new ComboBoxItem(0, "Antecedent (X)", "X"));
+		comboRuleSide.addItem(new ComboBoxItem(1, "Consequent (Y)", "Y"));
 		
 		/* Initializes filter parameters for metrics */
 		initMetrics();
