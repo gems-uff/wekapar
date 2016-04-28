@@ -41,7 +41,7 @@ public class RulesTableIndexedColumn {
 	/**
 	 * Set a {@link TableColumn}.
 	 * 
-	 * @param the table column object
+	 * @param column the table column object
 	 */
 	public void setColumn(TableColumn column) {
 		this.column = column;
