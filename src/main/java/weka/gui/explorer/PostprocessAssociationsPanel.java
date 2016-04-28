@@ -1840,7 +1840,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		/* Get all attributes */
 		attributeNames = "";
 		for (Iterator<FilterMapAttribute> i = attributes.iterator(); i.hasNext();) {
-			attributeNames += i.next();
+			attributeNames += Pattern.quote(i.next().toString());
 			attributeNames += i.hasNext() ? "|" : "";
 		}
 		
@@ -1848,7 +1848,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		attributeLabels = "";
 		for (Iterator<String> i = labels.iterator(); i.hasNext();) {
 			attributeLabels += Pattern.quote(i.next().toString());
-			attributeLabels += i.hasNext() ? "|" : "";
+			attributeLabels += i.hasNext() ? "( |$)|" : "";
 		}
 		
 		/* Find attributes in string and adds to list */
