@@ -2,7 +2,9 @@ package arpp.table;
 
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.SystemColor;
 import java.text.DecimalFormat;
+
 import javax.swing.BorderFactory;
 import javax.swing.JProgressBar;
 import javax.swing.JTable;
@@ -49,8 +51,7 @@ public class ProgressCellRenderer extends JProgressBar implements TableCellRende
 		setStringPainted(true);
         setOpaque(true);
         setBorder(BorderFactory.createEmptyBorder(1, 1, 1, 1));
-        setBackground(Color.WHITE);
-        setForeground(Color.BLUE);
+        setBackground(SystemColor.textHighlightText);
         
         setUI(new BasicProgressBarUI() {
         	@Override
@@ -72,14 +73,21 @@ public class ProgressCellRenderer extends JProgressBar implements TableCellRende
 	public Component getTableCellRendererComponent(JTable table, Object value,
 			boolean isSelected, boolean hasFocus, int row, int column) {
 		
-		int progress = (int) Math.round((((Double) value / maxValue)) * 100);
+		int progress = (int) Math.round(((Math.abs((Double) value) / maxValue)) * 100);
         setValue(progress);
-        
-		DecimalFormat formatter = ((RulesTableModel) table.getModel()).getFormatter();
+		
 		if (value instanceof String) {
 			value = Double.valueOf((String) value);
 		}
-		value = formatter.format((Number)value);
+		
+		if ((Double) value < 0) {
+			setForeground(Color.RED);
+		} else {
+			setForeground(SystemColor.textHighlight);
+		}
+        
+		DecimalFormat formatter = ((RulesTableModel) table.getModel()).getFormatter();
+		value = formatter.format((Number) value);
         setString(value.toString());
         
         return this;
