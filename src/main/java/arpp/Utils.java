@@ -40,19 +40,23 @@ public class Utils {
 	
 	/**
 	 * Get content from each cell of a {@link TableColumn}.
+	 * This method returns only values from visible rows.
 	 * 
 	 * @param table the {@link JTable} component
 	 * @param colIndex the index of column
-	 * @return the list with all column's values
+	 * @return the list with visible column's values
 	 */
 	private static List<Double> getColumnValues(JTable table, int colIndex) {
 		
 		List<Double> list = new ArrayList<Double>();
 		TableModel tableModel = table.getModel();
-		int modelIndex = table.convertColumnIndexToModel(colIndex);
+		int modelColIndex = table.convertColumnIndexToModel(colIndex);
+		int rowCount = table.getRowCount();
+		int currentRow;
 		
-		for (int i = 0; i < tableModel.getRowCount(); i++) {
-			list.add((Double) tableModel.getValueAt(i, modelIndex));
+		for (int row = 0; row < rowCount; row++) {
+			currentRow = table.convertRowIndexToModel(row);
+			list.add((Double) tableModel.getValueAt(currentRow, modelColIndex));
 		}
 		
 		return list;

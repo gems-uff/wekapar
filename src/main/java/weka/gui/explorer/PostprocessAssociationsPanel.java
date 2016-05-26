@@ -74,6 +74,7 @@ import javax.swing.event.RowSorterEvent.Type;
 import javax.swing.event.RowSorterListener;
 import javax.swing.filechooser.FileFilter;
 import javax.swing.filechooser.FileNameExtensionFilter;
+import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableColumn;
 import javax.swing.table.TableModel;
 import javax.swing.table.TableRowSorter;
@@ -807,6 +808,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		tablePanel.add(scrollPaneTable);
 		
 		JPopupMenu tablePopupMenu = new JPopupMenu();
+		
 		JMenuItem menuItemSubSet = new JMenuItem("Find subsets for this rule");
 		menuItemSubSet.addActionListener(new ActionListener() {
 			@Override
@@ -816,6 +818,7 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 			}
 		});
 		tablePopupMenu.add(menuItemSubSet);
+		
 		JMenuItem menuItemInverse = new JMenuItem("Find inverse rule");
 		menuItemInverse.addActionListener(new ActionListener() {
 			@Override
@@ -912,11 +915,11 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 						columnModel.showColumn(metricName);
 					} else {
 						log.statusMessage("Disabling column...");
+						columnModel.hideColumn(metricName);
 						if (sorter.getSortKeys().contains(metricName)) {
 							List<SortKey> sortKeys = Collections.emptyList();
 							sorter.setSortKeys(sortKeys);
 						}
-						columnModel.hideColumn(metricName);
 					}
 					
 					applyFilter();
@@ -1661,7 +1664,6 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		
 	}
 
-	
 	/**
 	 * Applies filter to find a subset of rules as a result from
 	 * generated subsets of a initial set of the antecedents in
@@ -2125,7 +2127,26 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		
 		/* Update counting of filtered values */
 		lblFilteredRulesValue.setText(String.valueOf(table.getRowCount()));
-						
+		
+		/* Update max value reference for ProgressCellRenderer */
+		
+		List<?> sortKeys = sorter.getSortKeys();
+		
+		if (sortKeys.size() > 0) {
+									
+			RowSorter.SortKey key = (SortKey) sortKeys.get(0);
+			TableModel tableModel = table.getModel();
+			RulesTableColumnModel columnModel = table.getColumnModel();
+			String columnName = tableModel.getColumnName(key.getColumn());
+			if (columnModel.hasColumn(columnName)) {
+				int columnIndex = columnModel.getColumnIndex(columnName);
+				TableCellRenderer cellRenderer = columnModel.getColumn(columnIndex).getCellRenderer();
+				if (cellRenderer instanceof ProgressCellRenderer) {
+					((ProgressCellRenderer) cellRenderer).updateMaxValue(table, columnIndex);
+				}
+			}
+			
+		}
 	}
 
 	/**

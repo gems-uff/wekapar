@@ -46,7 +46,7 @@ public class ProgressCellRenderer extends JProgressBar implements TableCellRende
 
 		super();
 		
-		maxValue = Utils.getColumnMaxValue(table, column);
+		updateMaxValue(table, column);
 		
 		setStringPainted(true);
         setOpaque(true);
@@ -83,7 +83,7 @@ public class ProgressCellRenderer extends JProgressBar implements TableCellRende
 		if ((Double) value < 0) {
 			setForeground(Color.RED);
 		} else {
-			setForeground(SystemColor.textHighlight);
+			setForeground(SystemColor.BLUE);
 		}
         
 		DecimalFormat formatter = ((RulesTableModel) table.getModel()).getFormatter();
@@ -92,6 +92,12 @@ public class ProgressCellRenderer extends JProgressBar implements TableCellRende
         
         return this;
         
+	}
+	
+	public void updateMaxValue(JTable table, int column) {
+		
+		maxValue = Utils.getColumnMaxValue(table, column);
+		
 	}
 
 }
