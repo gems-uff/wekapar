@@ -3,7 +3,7 @@
 # 
 
 # Package name (required)
-PackageName=associationRulesPostProcessing
+PackageName=WekaPAR
 
 # Version (required)
 Version=0.6.3
@@ -12,7 +12,7 @@ Version=0.6.3
 Date=2016-05-26
 
 # Title (required)
-Title=associationRulesPostProcessing
+Title=WekaPAR
 
 Category=Visualization
 
@@ -26,7 +26,7 @@ Maintainer=Daniel Silva <danielnsilva@gmail.com>
 License=GPL 3.0
 
 # Description (required)
-Description=associationRulesPostProcessing
+Description=WekaPAR
 
 # Package URL for obtaining the package archive (required)
 PackageURL=http://www.ufac.br
