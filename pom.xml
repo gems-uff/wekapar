@@ -3,17 +3,16 @@
 
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>nz.ac.waikato.cms.weka</groupId>
-  <artifactId>associationRulesPostProcessing</artifactId>
+  <groupId>br.ufac.si</groupId>
+  <artifactId>WekaPAR</artifactId>
   <version>0.6.3-SNAPSHOT</version>
   <packaging>jar</packaging>
 
-  <name>associationRulesPostProcessing</name>
+  <name>WekaPAR</name>
   <description>
   </description>
-  <url>http://weka.sourceforge.net/doc.packages/associationRulesPostProcessing</url>
   <organization>
-    <name>University of Waikato, Hamilton, NZ</name>
+    <name>Federal University of Acre, Rio Branco, BR</name>
     <url>http://www.waikato.ac.nz/</url>
   </organization>
   <licenses>
@@ -47,11 +46,6 @@
     <version>7</version>
   </parent>
 
-  <scm>
-    <connection>scm:svn:https://svn.scms.waikato.ac.nz/svn/weka/trunk/packages/external/associationRulesPostProcessing</connection>
-    <developerConnection>scm:svn:https://svn.scms.waikato.ac.nz/svn/weka/trunk/packages/external/associationRulesPostProcessing</developerConnection>
-    <url>https://svn.scms.waikato.ac.nz/svn/weka/trunk/packages/external/associationRulesPostProcessing</url>
-  </scm>
 
   <profiles>
     <profile>
@@ -92,18 +86,11 @@
   </profiles>
 
   <dependencies>
-    <dependency>
-      <groupId>nz.ac.waikato.cms.weka</groupId>
-      <artifactId>weka-dev</artifactId>
-      <version>[3.7.8,)</version>
-      <type>test-jar</type>
-      <scope>test</scope>
-    </dependency>
 
     <dependency>
       <groupId>nz.ac.waikato.cms.weka</groupId>
       <artifactId>weka-dev</artifactId>
-      <version>[3.7.2,)</version>
+      <version>[3.7.8,)</version>
       <type>test-jar</type>
       <scope>test</scope>
     </dependency>
