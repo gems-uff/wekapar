@@ -92,19 +92,19 @@ import weka.gui.SysErrLog;
 import weka.gui.TaskLogger;
 import weka.gui.explorer.Explorer.ExplorerPanel;
 import weka.gui.explorer.Explorer.LogHandler;
-import arpp.ComboBoxItem;
-import arpp.DecimalSpinner;
-import arpp.FilterComboBox;
-import arpp.FilterMap;
-import arpp.FilterMapAttribute;
-import arpp.MetricSpinner;
-import arpp.Utils;
-import arpp.table.DecimalCellRenderer;
-import arpp.table.ProgressCellRenderer;
-import arpp.table.RulesTable;
-import arpp.table.RulesTableCellRenderer;
-import arpp.table.RulesTableColumnModel;
-import arpp.table.RulesTableModel;
+import wekapar.ComboBoxItem;
+import wekapar.DecimalSpinner;
+import wekapar.FilterComboBox;
+import wekapar.FilterMap;
+import wekapar.FilterMapAttribute;
+import wekapar.MetricSpinner;
+import wekapar.Utils;
+import wekapar.table.DecimalCellRenderer;
+import wekapar.table.ProgressCellRenderer;
+import wekapar.table.RulesTable;
+import wekapar.table.RulesTableCellRenderer;
+import wekapar.table.RulesTableColumnModel;
+import wekapar.table.RulesTableModel;
 
 /**
  * A JPanel to visualize association rules

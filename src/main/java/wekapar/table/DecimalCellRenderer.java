@@ -1,4 +1,4 @@
-package arpp.table;
+package wekapar.table;
 
 import java.awt.Component;
 import java.text.DecimalFormat;

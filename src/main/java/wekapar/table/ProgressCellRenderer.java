@@ -1,4 +1,4 @@
-package arpp.table;
+package wekapar.table;
 
 import java.awt.Color;
 import java.awt.Component;
@@ -12,7 +12,7 @@ import javax.swing.plaf.basic.BasicProgressBarUI;
 import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableColumn;
 
-import arpp.Utils;
+import wekapar.Utils;
 
 /**
  * <p>

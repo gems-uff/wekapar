@@ -1,4 +1,4 @@
-package arpp.table;
+package wekapar.table;
 
 import javax.swing.JTable;
 

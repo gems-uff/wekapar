@@ -1,4 +1,4 @@
-package arpp;
+package wekapar;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -102,7 +102,7 @@ public class Utils {
 		
 		String version = "";
 		
-		String file = new File("arpp/version.txt").getAbsolutePath();
+		String file = new File("wekapar/version.txt").getAbsolutePath();
 		Scanner scanner = new Scanner(file);
 		version = scanner.nextLine();
 		scanner.close();

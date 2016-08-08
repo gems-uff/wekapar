@@ -1,4 +1,4 @@
-package arpp;
+package wekapar;
 
 import javax.swing.JSpinner;
 import javax.swing.SpinnerNumberModel;

@@ -1,4 +1,4 @@
-package arpp;
+package wekapar;
 
 import javax.swing.JComboBox;
 
