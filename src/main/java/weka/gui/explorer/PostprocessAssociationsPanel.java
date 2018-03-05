@@ -118,6 +118,9 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 	
 	/** Enabling support for PropertyChangeListener */
 	private static PropertyChangeSupport propertyChangeSupport = new PropertyChangeSupport(PostprocessAssociationsPanel.class);
+
+	/** for monitoring the Memory consumption */
+	protected static Memory memory = new Memory(true);
 	
 	/** Message for busy thread */
 	private static final String THREAD_BUSY_MESSAGE = "Can't execute at this time. Currently busy with other operation.";
@@ -1921,8 +1924,8 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 			
 			boolean proceed = true;
 		
-		    if (Explorer.m_Memory.memoryIsLow()) {
-		    	proceed = Explorer.m_Memory.showMemoryIsLow();
+		    if (memory.memoryIsLow()) {
+		    	proceed = memory.showMemoryIsLow();
 		    }
 		    
 		    if (proceed) {
@@ -1974,8 +1977,8 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		
 		boolean proceed = true;
 	
-	    if (Explorer.m_Memory.memoryIsLow()) {
-	    	proceed = Explorer.m_Memory.showMemoryIsLow();
+	    if (memory.memoryIsLow()) {
+	    	proceed = memory.showMemoryIsLow();
 	    }
 	    
 	    if (proceed) {
@@ -2061,8 +2064,8 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 		
 		boolean proceed = true;
 		
-	    if (Explorer.m_Memory.memoryIsLow()) {
-	    	proceed = Explorer.m_Memory.showMemoryIsLow();
+	    if (memory.memoryIsLow()) {
+	    	proceed = memory.showMemoryIsLow();
 	    }
 	    
 	    if (proceed) {
@@ -2170,8 +2173,8 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 			}
 		}
 
-        if (Explorer.m_Memory.memoryIsLow()) {
-        	proceed = Explorer.m_Memory.showMemoryIsLow();
+        if (memory.memoryIsLow()) {
+        	proceed = memory.showMemoryIsLow();
         }
 		
 		if (proceed) {
