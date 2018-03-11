@@ -1920,10 +1920,12 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 	private void applyRulesFilter() {
 			
 			boolean proceed = true;
-		
-		    if (Explorer.m_Memory.memoryIsLow()) {
-		    	proceed = Explorer.m_Memory.showMemoryIsLow();
-		    }
+	        
+			// TODO: Not working (ilegal access error) since 3.8.1
+			// Cause: new classloader scheme
+	        /*if (Explorer.m_Memory.memoryIsLow()) {
+	        	proceed = Explorer.m_Memory.showMemoryIsLow();
+	        }*/
 		    
 		    if (proceed) {
 				
@@ -1973,10 +1975,12 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 	private void clearRulesFilter() {
 		
 		boolean proceed = true;
-	
-	    if (Explorer.m_Memory.memoryIsLow()) {
-	    	proceed = Explorer.m_Memory.showMemoryIsLow();
-	    }
+        
+		// TODO: Not working (ilegal access error) since 3.8.1
+		// Cause: new classloader scheme
+        /*if (Explorer.m_Memory.memoryIsLow()) {
+        	proceed = Explorer.m_Memory.showMemoryIsLow();
+        }*/
 	    
 	    if (proceed) {
 	
@@ -2060,10 +2064,12 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 	private void resetMetricsFilter() {
 		
 		boolean proceed = true;
-		
-	    if (Explorer.m_Memory.memoryIsLow()) {
-	    	proceed = Explorer.m_Memory.showMemoryIsLow();
-	    }
+        
+		// TODO: Not working (ilegal access error) since 3.8.1
+		// Cause: new classloader scheme
+        /*if (Explorer.m_Memory.memoryIsLow()) {
+        	proceed = Explorer.m_Memory.showMemoryIsLow();
+        }*/
 	    
 	    if (proceed) {
 	
@@ -2169,10 +2175,12 @@ public class PostprocessAssociationsPanel extends JPanel implements ExplorerPane
 				proceed = false;
 			}
 		}
-
-        if (Explorer.m_Memory.memoryIsLow()) {
+        
+		// TODO: Not working (ilegal access error) since 3.8.1
+		// Cause: new classloader scheme
+        /*if (Explorer.m_Memory.memoryIsLow()) {
         	proceed = Explorer.m_Memory.showMemoryIsLow();
-        }
+        }*/
 		
 		if (proceed) {
 			
