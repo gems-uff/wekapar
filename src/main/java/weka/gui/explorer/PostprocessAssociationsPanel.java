@@ -87,6 +87,7 @@ import weka.associations.AssociationRule;
 import weka.associations.AssociationRules;
 import weka.associations.Item;
 import weka.core.Instances;
+import weka.core.Memory;
 import weka.gui.Logger;
 import weka.gui.SysErrLog;
 import weka.gui.TaskLogger;
